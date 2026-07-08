@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nifty 500 Stock Scanner — NSE Market Analysis</title>
+    <meta name="description" content="Professional NSE Nifty 500 Stock Scanner for intraday and weekly trading analysis with sector-wise insights.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=9">
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">📈</div>
+            <div class="logo-text">
+                <span class="logo-title">StockScanner</span>
+                <span class="logo-sub">NSE Nifty 500</span>
+            </div>
+        </div>
+
+        <div class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="indices" id="nav-indices">
+                <span class="nav-icon">🌐</span>
+                <span class="nav-label">Global &amp; GIFT Nifty</span>
+            </a>
+            <a href="#" class="nav-item" data-page="intraday" id="nav-intraday">
+                <span class="nav-icon">⚡</span>
+                <span class="nav-label">Intraday Picks</span>
+                <span class="nav-badge" id="badge-intraday">0</span>
+            </a>
+            <a href="#" class="nav-item" data-page="weekly" id="nav-weekly">
+                <span class="nav-icon">📅</span>
+                <span class="nav-label">Weekly Picks</span>
+                <span class="nav-badge" id="badge-weekly">0</span>
+            </a>
+            <a href="#" class="nav-item" data-page="swing" id="nav-swing">
+                <span class="nav-icon">🌊</span>
+                <span class="nav-label">Swing Picks</span>
+                <span class="nav-badge" id="badge-swing">0</span>
+            </a>
+            <a href="#" class="nav-item" data-page="breakout" id="nav-breakout">
+                <span class="nav-icon">🚀</span>
+                <span class="nav-label">Breakout Stocks</span>
+            </a>
+            <a href="#" class="nav-item" data-page="supertrend" id="nav-supertrend">
+                <span class="nav-icon">🎯</span>
+                <span class="nav-label">SuperTrend Scans</span>
+            </a>
+            <a href="#" class="nav-item" data-page="fundamentals" id="nav-fundamentals">
+                <span class="nav-icon">💎</span>
+                <span class="nav-label">Fundamental Gems</span>
+            </a>
+            <a href="#" class="nav-item" data-page="sectors" id="nav-sectors">
+                <span class="nav-icon">🏭</span>
+                <span class="nav-label">Sector Analysis</span>
+            </a>
+            <a href="#" class="nav-item" data-page="watchlist" id="nav-watchlist">
+                <span class="nav-icon">⭐</span>
+                <span class="nav-label">My Watchlist</span>
+            </a>
+            <a href="#" class="nav-item" data-page="portfolio" id="nav-portfolio">
+                <span class="nav-icon">💼</span>
+                <span class="nav-label">Portfolio & P&amp;L</span>
+            </a>
+            <a href="#" class="nav-item" data-page="allstocks" id="nav-allstocks">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">All Stocks</span>
+            </a>
+            <a href="#" class="nav-item" data-page="import" id="nav-import">
+                <span class="nav-icon">📁</span>
+                <span class="nav-label">Import Data</span>
+            </a>
+            <a href="#" class="nav-item" data-page="results" id="nav-results">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Results Calendar</span>
+                <span class="nav-badge" id="badge-results" style="background:#f59e0b">0</span>
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="db-status" id="dbStatus">
+                <div class="status-dot connecting"></div>
+                <span>Connecting...</span>
+            </div>
+
+            <!-- User Auth Panel -->
+            <div id="userPanel" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">
+                <!-- Logged out state -->
+                <div id="authLoggedOut">
+                    <button onclick="openAuthModal('login')" class="btn-auth-login">🔑 Login</button>
+                </div>
+                <!-- Logged in state -->
+                <div id="authLoggedIn" style="display:none">
+                    <div class="user-avatar-row">
+                        <div class="user-avatar" id="userAvatarIcon">👤</div>
+                        <div class="user-info-box">
+                            <span class="user-name" id="sidebarUsername">User</span>
+                            <span class="user-role" id="sidebarRole">admin</span>
+                        </div>
+                        <button onclick="doLogout()" class="btn-logout" title="Logout">↪</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div style="margin-top:10px; font-size:0.65rem; color:#ef4444; background:rgba(239,68,68,0.08); padding:5px 6px; border-radius:4px;">
+                ⚠️ For educational &amp; informational purposes only.
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                <span class="page-subtitle" id="pageSubtitle">NSE Nifty 500 Market Overview</span>
+            </div>
+            <div class="topbar-right">
+                <div class="date-selector-wrap">
+                    <label for="dateSelect">📅 Data Date:</label>
+                    <select id="dateSelect" class="date-select">
+                        <option value="">Latest</option>
+                    </select>
+                </div>
+                <div class="live-sync-wrap" style="display:flex; align-items:center; gap:8px;">
+                    <label style="font-size: 0.8rem; font-weight:600; color:var(--text-secondary);">Live Sync (5m)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="liveSyncToggle" onchange="toggleLiveSync()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="market-time" id="marketTime"></div>
+                <button class="theme-toggle" id="btnThemeToggle" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                    ☀️
+                </button>
+                <button class="btn-refresh" id="btnRefresh" onclick="refreshData()">
+                    <span>↻</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- PAGES -->
+
+        <!-- ======= DASHBOARD PAGE ======= -->
+        <div class="page active" id="page-dashboard">
+
+            <!-- ── ROW 1: Index Ticker Bar ─────────────────────────────────── -->
+            <div class="db-ticker-bar">
+                <div class="ticker-item">
+                    <span class="ticker-label">NIFTY 50</span>
+                    <span class="ticker-val" id="wdgNiftyVal">--</span>
+                    <div class="ticker-spark"><canvas id="wdgNiftyChart"></canvas></div>
+                </div>
+                <div class="ticker-divider"></div>
+                <div class="ticker-item">
+                    <span class="ticker-label">BANK NIFTY</span>
+                    <span class="ticker-val" id="wdgBankNiftyVal">--</span>
+                    <div class="ticker-spark"><canvas id="wdgBankNiftyChart"></canvas></div>
+                </div>
+                <div class="ticker-divider"></div>
+                <div class="ticker-item" style="flex-direction:row; gap:18px; align-items:center;">
+                    <div>
+                        <div class="ticker-label">ADVANCES</div>
+                        <div style="font-size:1.1rem; font-weight:700; color:#22c55e;" id="wdgAdv">--</div>
+                    </div>
+                    <div class="ad-ratio-bar-wrap">
+                        <div class="ad-ratio-bar">
+                            <div class="ad-ratio-fill" id="wdgAdBar" style="width:50%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="ticker-label" style="text-align:right;">DECLINES</div>
+                        <div style="font-size:1.1rem; font-weight:700; color:#ef4444; text-align:right;" id="wdgDec">--</div>
+                    </div>
+                </div>
+                <div class="ticker-divider"></div>
+                <div class="ticker-item" style="align-items:center; gap:4px;">
+                    <span class="ticker-label">MARKET MOOD</span>
+                    <canvas id="wdgMoodGauge" width="100" height="52" style="margin-top:4px;"></canvas>
+                    <div id="wdgMoodLabel" style="font-size:0.72rem; font-weight:700; margin-top:2px; color:#22c55e;">--</div>
+                </div>
+            </div>
+
+            <!-- ── ROW 2: Summary KPI Cards ─────────────────────────────────── -->
+            <div class="db-kpi-row">
+                <div class="db-kpi-card" id="card-total">
+                    <div class="db-kpi-icon">📊</div>
+                    <div>
+                        <div class="db-kpi-val" id="totalStocks">--</div>
+                        <div class="db-kpi-lbl">Total Stocks</div>
+                    </div>
+                </div>
+                <div class="db-kpi-card db-kpi-green" id="card-gainers">
+                    <div class="db-kpi-icon">🟢</div>
+                    <div>
+                        <div class="db-kpi-val" id="totalGainers">--</div>
+                        <div class="db-kpi-lbl">Gainers</div>
+                    </div>
+                </div>
+                <div class="db-kpi-card db-kpi-red" id="card-losers">
+                    <div class="db-kpi-icon">🔴</div>
+                    <div>
+                        <div class="db-kpi-val" id="totalLosers">--</div>
+                        <div class="db-kpi-lbl">Losers</div>
+                    </div>
+                </div>
+                <div class="db-kpi-card" id="card-unchanged">
+                    <div class="db-kpi-icon">⚪</div>
+                    <div>
+                        <div class="db-kpi-val" id="totalUnchanged">--</div>
+                        <div class="db-kpi-lbl">Unchanged</div>
+                    </div>
+                </div>
+                <div class="db-kpi-card db-kpi-yellow" id="card-value">
+                    <div class="db-kpi-icon">💰</div>
+                    <div>
+                        <div class="db-kpi-val" id="totalValue">--</div>
+                        <div class="db-kpi-lbl">Total Value (Cr)</div>
+                    </div>
+                </div>
+                <div class="db-kpi-card" id="card-avg">
+                    <div class="db-kpi-icon">📈</div>
+                    <div>
+                        <div class="db-kpi-val" id="avgChange">--</div>
+                        <div class="db-kpi-lbl">Avg % Change</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── ROW 3: Main 3-Column Layout ──────────────────────────────── -->
+            <div class="db-main-grid">
+
+                <!-- LEFT: Market Breadth + Gainers + Losers -->
+                <div class="db-left-col">
+                    <!-- Breadth -->
+                    <div class="db-panel">
+                        <div class="db-panel-head">
+                            <span>📊 Market Breadth</span>
+                        </div>
+                        <div style="max-width:200px; margin:0 auto;">
+                            <canvas id="breadthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Top Gainers -->
+                    <div class="db-panel db-panel-gainers">
+                        <div class="db-panel-head" style="color:#22c55e;">
+                            <span>🚀 Top Gainers</span>
+                        </div>
+                        <div class="db-movers-list" id="topGainersList">
+                            <div class="loading-pulse">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Top Losers -->
+                    <div class="db-panel db-panel-losers">
+                        <div class="db-panel-head" style="color:#ef4444;">
+                            <span>🔻 Top Losers</span>
+                        </div>
+                        <div class="db-movers-list" id="topLosersList">
+                            <div class="loading-pulse">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTER: Sector Overview bar list -->
+                <div class="db-center-col">
+                    <div class="db-panel" style="height:100%;">
+                        <div class="db-panel-head" style="justify-content:space-between;">
+                            <span>📈 Sector Performance</span>
+                            <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">View All →</a>
+                        </div>
+                        <div id="sectorOverviewList" class="db-sector-list">
+                            <div class="loading-pulse">Loading sectors...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Sector Heatmap -->
+                <div class="db-right-col">
+                    <div class="db-panel" style="height:100%;">
+                        <div class="db-panel-head" style="justify-content:space-between;">
+                            <span>🌡️ Sector Heatmap</span>
+                            <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">Full View →</a>
+                        </div>
+                        <div class="heatmap-grid" id="sectorHeatmap" style="margin-top:10px;">
+                            <div class="loading-pulse">Loading sectors...</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div><!-- end page-dashboard -->
+
+        <!-- ======= GLOBAL & GIFT NIFTY PAGE ======= -->
+        <div class="page" id="page-indices">
+            
+            <!-- Timezone Status Clocks -->
+            <div class="market-clocks-wrap">
+                <div class="market-clock-card" id="clkCard-Mumbai">
+                    <div class="market-clock-header">
+                        <span class="clock-status-dot" id="clkDot-Mumbai"></span>
+                        <span class="market-clock-title">MUMBAI (NSE/BSE)</span>
+                    </div>
+                    <div class="market-clock-time" id="clkTime-Mumbai">--:--:--</div>
+                    <div class="market-clock-timezone">GMT+5:30</div>
+                </div>
+                <div class="market-clock-card" id="clkCard-NewYork">
+                    <div class="market-clock-header">
+                        <span class="clock-status-dot" id="clkDot-NewYork"></span>
+                        <span class="market-clock-title">NEW YORK (NYSE)</span>
+                    </div>
+                    <div class="market-clock-time" id="clkTime-NewYork">--:--:--</div>
+                    <div class="market-clock-timezone">GMT-4:00 (EDT)</div>
+                </div>
+                <div class="market-clock-card" id="clkCard-London">
+                    <div class="market-clock-header">
+                        <span class="clock-status-dot" id="clkDot-London"></span>
+                        <span class="market-clock-title">LONDON (LSE)</span>
+                    </div>
+                    <div class="market-clock-time" id="clkTime-London">--:--:--</div>
+                    <div class="market-clock-timezone">GMT+1:00 (BST)</div>
+                </div>
+                <div class="market-clock-card" id="clkCard-Tokyo">
+                    <div class="market-clock-header">
+                        <span class="clock-status-dot" id="clkDot-Tokyo"></span>
+                        <span class="market-clock-title">TOKYO (TSE)</span>
+                    </div>
+                    <div class="market-clock-time" id="clkTime-Tokyo">--:--:--</div>
+                    <div class="market-clock-timezone">GMT+9:00 (JST)</div>
+                </div>
+            </div>
+            
+            <!-- Focus Cards Row -->
+            <div class="indices-focus-row">
+                <div class="index-focus-card" id="card-giftnifty">
+                    <div class="index-focus-header">
+                        <div class="index-focus-title-wrap">
+                            <span class="index-focus-flag">🇮🇳</span>
+                            <span class="index-focus-name">GIFT NIFTY</span>
+                        </div>
+                        <span class="index-focus-exchange">NSE IX</span>
+                    </div>
+                    <div class="index-focus-body">
+                        <div class="index-focus-price" id="idxGiftPrice">--</div>
+                        <div class="index-focus-change" id="idxGiftChange">--</div>
+                    </div>
+                    <div class="index-focus-chart-wrap">
+                        <canvas id="idxGiftChart"></canvas>
+                    </div>
+                    <div class="index-focus-footer">
+                        <div class="index-focus-stat">O: <span id="idxGiftOpen">--</span></div>
+                        <div class="index-focus-stat">H: <span id="idxGiftHigh">--</span></div>
+                        <div class="index-focus-stat">L: <span id="idxGiftLow">--</span></div>
+                    </div>
+                </div>
+
+                <div class="index-focus-card" id="card-nifty50">
+                    <div class="index-focus-header">
+                        <div class="index-focus-title-wrap">
+                            <span class="index-focus-flag">🇮🇳</span>
+                            <span class="index-focus-name">NIFTY 50 (Spot)</span>
+                        </div>
+                        <span class="index-focus-exchange">NSE India</span>
+                    </div>
+                    <div class="index-focus-body">
+                        <div class="index-focus-price" id="idxNiftyPrice">--</div>
+                        <div class="index-focus-change" id="idxNiftyChange">--</div>
+                    </div>
+                    <div class="index-focus-chart-wrap">
+                        <canvas id="idxNiftyChart2"></canvas>
+                    </div>
+                    <div class="index-focus-footer">
+                        <div class="index-focus-stat">O: <span id="idxNiftyOpen">--</span></div>
+                        <div class="index-focus-stat">H: <span id="idxNiftyHigh">--</span></div>
+                        <div class="index-focus-stat">L: <span id="idxNiftyLow">--</span></div>
+                    </div>
+                </div>
+
+                <div class="index-focus-card" id="card-niftybank">
+                    <div class="index-focus-header">
+                        <div class="index-focus-title-wrap">
+                            <span class="index-focus-flag">🇮🇳</span>
+                            <span class="index-focus-name">NIFTY BANK</span>
+                        </div>
+                        <span class="index-focus-exchange">NSE India</span>
+                    </div>
+                    <div class="index-focus-body">
+                        <div class="index-focus-price" id="idxBankPrice">--</div>
+                        <div class="index-focus-change" id="idxBankChange">--</div>
+                    </div>
+                    <div class="index-focus-chart-wrap">
+                        <canvas id="idxBankChart2"></canvas>
+                    </div>
+                    <div class="index-focus-footer">
+                        <div class="index-focus-stat">O: <span id="idxBankOpen">--</span></div>
+                        <div class="index-focus-stat">H: <span id="idxBankHigh">--</span></div>
+                        <div class="index-focus-stat">L: <span id="idxBankLow">--</span></div>
+                    </div>
+                </div>
+
+                <div class="index-focus-card" id="card-usdinr">
+                    <div class="index-focus-header">
+                        <div class="index-focus-title-wrap">
+                            <span class="index-focus-flag">💵</span>
+                            <span class="index-focus-name">USD / INR</span>
+                        </div>
+                        <span class="index-focus-exchange">Forex</span>
+                    </div>
+                    <div class="index-focus-body">
+                        <div class="index-focus-price" id="idxUsdPrice">--</div>
+                        <div class="index-focus-change" id="idxUsdChange">--</div>
+                    </div>
+                    <div class="index-focus-chart-wrap" style="height: 50px; display:flex; align-items:center; justify-content:center; color: var(--text-muted); font-size: 0.85rem;">
+                        <span>Live Exchange Rate</span>
+                    </div>
+                    <div class="index-focus-footer" style="justify-content:center;">
+                        <span style="font-size: 0.72rem; color: var(--text-muted);" id="idxUsdUpdated">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Implied Gap Calculator & Sentiment Visualizer -->
+            <div class="gap-visualizer-card">
+                <div class="gap-viz-left">
+                    <div class="gap-viz-badge" id="gapBadge">Implied Market Opening</div>
+                    <h2 class="gap-viz-title" id="gapVal">Calculating gap...</h2>
+                    <p class="gap-viz-desc" id="gapDesc">Comparing Nifty 50 Spot price vs GIFT Nifty pre-market futures to estimate opening gap.</p>
+                    <div class="gap-details-row">
+                        <div class="gap-detail-item">
+                            <span class="gap-detail-lbl">NIFTY 50 SPOT</span>
+                            <span class="gap-detail-val" id="gapNiftySpot">--</span>
+                        </div>
+                        <div class="gap-detail-sep">⇄</div>
+                        <div class="gap-detail-item">
+                            <span class="gap-detail-lbl">GIFT NIFTY</span>
+                            <span class="gap-detail-val" id="gapGiftFutures">--</span>
+                        </div>
+                        <div class="gap-detail-sep">=</div>
+                        <div class="gap-detail-item">
+                            <span class="gap-detail-lbl">SPREAD</span>
+                            <span class="gap-detail-val" id="gapSpreadVal">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="gap-viz-right">
+                    <div class="gap-meter-wrap">
+                        <div class="gap-meter-labels">
+                            <span>Gap-Down (Bearish)</span>
+                            <span>Neutral</span>
+                            <span>Gap-Up (Bullish)</span>
+                        </div>
+                        <div class="gap-meter-bar">
+                            <div class="gap-meter-pointer" id="gapPointer" style="left: 50%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- International Indices Section Header -->
+            <div class="indices-section-header">
+                <h3>🌐 International Stock Indices</h3>
+                <span class="indices-section-sub">Real-time status of major US, European and Asian indices</span>
+            </div>
+
+            <!-- Global Indices Grid -->
+            <div class="global-indices-grid" id="globalIndicesGrid">
+                <!-- S&P 500 -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">S&P 500</span>
+                        <span class="global-idx-sym">^GSPC</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^GSPC">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^GSPC">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^GSPC"></canvas>
+                    </div>
+                </div>
+                <!-- Nasdaq -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">NASDAQ 100</span>
+                        <span class="global-idx-sym">^IXIC</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^IXIC">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^IXIC">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^IXIC"></canvas>
+                    </div>
+                </div>
+                <!-- Dow Jones -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">DOW JONES</span>
+                        <span class="global-idx-sym">^DJI</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^DJI">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^DJI">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^DJI"></canvas>
+                    </div>
+                </div>
+                <!-- FTSE 100 -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">FTSE 100</span>
+                        <span class="global-idx-sym">^FTSE</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^FTSE">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^FTSE">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^FTSE"></canvas>
+                    </div>
+                </div>
+                <!-- DAX -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">DAX PERFORMANCE</span>
+                        <span class="global-idx-sym">^GDAXI</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^GDAXI">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^GDAXI">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^GDAXI"></canvas>
+                    </div>
+                </div>
+                <!-- Nikkei 225 -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">NIKKEI 225</span>
+                        <span class="global-idx-sym">^N225</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^N225">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^N225">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^N225"></canvas>
+                    </div>
+                </div>
+                <!-- Hang Seng -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">HANG SENG</span>
+                        <span class="global-idx-sym">^HSI</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-^HSI">--</span>
+                        <span class="global-idx-change" id="gIdxChange-^HSI">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-^HSI"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commodities Section Header -->
+            <div class="indices-section-header" style="margin-top: 28px;">
+                <h3>🛢️ Global Commodities</h3>
+                <span class="indices-section-sub">Real-time futures for Gold, Silver and Crude Oil</span>
+            </div>
+
+            <!-- Commodities Grid -->
+            <div class="global-indices-grid" id="commoditiesGrid">
+                <!-- Gold -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">🏅 Gold (Futures)</span>
+                        <span class="global-idx-sym">GC=F (USD / oz)</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-GC=F">--</span>
+                        <span class="global-idx-change" id="gIdxChange-GC=F">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-GC=F"></canvas>
+                    </div>
+                </div>
+                <!-- Silver -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">🥈 Silver (Futures)</span>
+                        <span class="global-idx-sym">SI=F (USD / oz)</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-SI=F">--</span>
+                        <span class="global-idx-change" id="gIdxChange-SI=F">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-SI=F"></canvas>
+                    </div>
+                </div>
+                <!-- Crude Oil -->
+                <div class="global-idx-card">
+                    <div class="global-idx-header">
+                        <span class="global-idx-name">🛢️ Crude Oil (WTI)</span>
+                        <span class="global-idx-sym">CL=F (USD / bbl)</span>
+                    </div>
+                    <div class="global-idx-body">
+                        <span class="global-idx-price" id="gIdxPrice-CL=F">--</span>
+                        <span class="global-idx-change" id="gIdxChange-CL=F">--</span>
+                    </div>
+                    <div class="global-idx-chart">
+                        <canvas id="gIdxChart-CL=F"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="indices-table-wrap">
+                <div class="indices-table-header">
+                    <h4>📊 All Markets Comparison</h4>
+                    <span class="last-updated-tag">Last Synced: <span id="idxLastSynced">--</span></span>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="tblIndicesCompare">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Ticker</th>
+                                <th>Market Price</th>
+                                <th>Change</th>
+                                <th>Change %</th>
+                                <th>Open</th>
+                                <th>High</th>
+                                <th>Low</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyIndicesCompare">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ======= INTRADAY PAGE ======= -->
+
+        <div class="page" id="page-intraday">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge bullish">⚡ Intraday Analysis</div>
+                    <p>High momentum stocks with strong volume — suitable for today's intraday trading</p>
+                    <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border-left: 3px solid var(--accent);">
+                        <strong>💡 Logic:</strong> Filters out low liquidity stocks (Value &lt; 25Cr). Ranks based on: <strong>1D Momentum</strong> (up to +20 pts for >3% move), <strong>30D Trend</strong> (up to +15 pts), and <strong>Breakout Bonus</strong> (+15 pts if near 52W High).
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" onclick="exportTableToCSV('intradayTableBody', 'IntradayPicks.csv')">⬇️ Export CSV</button>
+                    <select id="intradayBiasFilter" class="filter-select" onchange="loadIntradayData()">
+                        <option value="all">All Stocks</option>
+                        <option value="BULLISH">🟢 Bullish Only</option>
+                        <option value="BEARISH">🔴 Bearish Only</option>
+                    </select>
+                    <select id="intradaySectorFilter" class="filter-select" onchange="loadIntradayData()">
+                        <option value="">All Sectors</option>
+                    </select>
+                    <button class="btn-premium" onclick="filterTop10BullishSectors()">🌟 Top 10 (Bullish Sectors)</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="intradayTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>Open</th>
+                            <th>Change %</th>
+                            <th>Volume</th>
+                            <th>Value (Cr)</th>
+                            <th>52W H</th>
+                            <th>From High%</th>
+                            <th>Bias</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="intradayTableBody">
+                        <tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= WEEKLY PAGE ======= -->
+        <div class="page" id="page-weekly">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge weekly">📅 Weekly Swing Analysis</div>
+                    <p>Momentum-driven stocks for weekly swing trading based on 30-day performance</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" onclick="exportTableToCSV('weeklyTableBody', 'WeeklyPicks.csv')">⬇️ Export CSV</button>
+                    <select id="weeklySectorFilter" class="filter-select" onchange="loadWeeklyData()">
+                        <option value="">All Sectors</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="weeklyTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>Change %</th>
+                            <th>30D %</th>
+                            <th>365D %</th>
+                            <th>Value (Cr)</th>
+                            <th>52W H</th>
+                            <th>From High%</th>
+                            <th>From Low%</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weeklyTableBody">
+                        <tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- ======= SWING PAGE ======= -->
+        <div class="page" id="page-swing">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout">🌊 Sector Rotation Swing</div>
+                    <p>Stocks from the strongest bullish sectors over the last 30 days for swing trading</p>
+                    <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border-left: 3px solid var(--blue);">
+                        <strong>💡 Logic:</strong> Finds <strong>Bullish Sectors</strong> (Sector Avg 30D &gt; 0%). Filters stocks from these sectors with positive 30D growth & liquidity (&gt;25Cr). <strong>Swing Score</strong> = (Stock 30D% × 5) + (Sector 30D% × 10) + Breakout Proximity Bonus.
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="swingTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>Change %</th>
+                            <th>30D %</th>
+                            <th>Sector 30D</th>
+                            <th>Value (Cr)</th>
+                            <th>52W H</th>
+                            <th>From High%</th>
+                            <th>Swing Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="swingTableBody">
+                        <tr><td colspan="11" class="loading-row"><div class="loading-pulse">Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= BREAKOUT PAGE ======= -->
+        <div class="page" id="page-breakout">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout">🚀 Near 52W High Breakout</div>
+                    <p>Stocks trading within 8% of their 52-week highs — potential breakout candidates</p>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="breakoutTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>52W High</th>
+                            <th>From High%</th>
+                            <th>52W Low</th>
+                            <th>From Low%</th>
+                            <th>Change %</th>
+                            <th>30D %</th>
+                            <th>365D %</th>
+                            <th>Value (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakoutTableBody">
+                        <tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <!-- ======= SUPERTREND SCANS PAGE ======= -->
+        <div class="page" id="page-supertrend">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3);">🎯 SuperTrend Bullish Breakouts</div>
+                    <p>Live scanner that checks all Nifty 500 stocks to find fresh SuperTrend (10,3) Bullish crossovers today.</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" id="btnRunSuperTrend" onclick="runSuperTrendScan()" style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 10px 20px;">
+                        ▶️ Run Live Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('supertrendTableBody', 'SuperTrendBreakouts.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="stScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: var(--accent);">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Scanning 500 stocks on Yahoo Finance...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This usually takes 20-30 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="supertrendTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>Change %</th>
+                            <th>Volume</th>
+                            <th>Value (Cr)</th>
+                            <th>Breakout Date</th>
+                            <th>Chart</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supertrendTableBody">
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Live Scan' to find today's breakouts.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= FUNDAMENTALS PAGE ======= -->
+        <div class="page" id="page-fundamentals">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3);">💎 Top 20 Fundamental Gems</div>
+                    <p>Live scan to rank Nifty 500 stocks based on core fundamentals (ROE, PE, Debt, Margins).</p>
+                </div>
+                <div class="filter-row" style="display:flex; gap:10px;">
+                    <button class="btn-premium auth-required" id="btnAddFundamental" data-display="inline-flex" onclick="openFundModal()" style="background: linear-gradient(135deg, #10b981, #059669); padding: 10px 20px; display: none;">
+                        ➕ Add Fundamental Data
+                    </button>
+                    <button class="btn-premium" id="btnRunFundamentals" onclick="runFundamentalScan()" style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 10px 20px;">
+                        ▶️ Run Fundamental Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('fundamentalTableBody', 'FundamentalGems.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="fundScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: #60a5fa;">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Fetching detailed financial statements for 500 stocks...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This requires deep analysis and takes about 30-45 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="fundamentalTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>LTP</th>
+                            <th>PE Ratio</th>
+                            <th>ROE %</th>
+                            <th>D/E Ratio</th>
+                            <th>Mkt Cap (Cr)</th>
+                            <th>Margin %</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fundamentalTableBody">
+                        <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Fundamental Scan' to calculate top 20 fundamental stocks.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 2: Manual Fundamentals -->
+            <div class="analysis-header" style="margin-top: 40px; margin-bottom: 15px;">
+                <div class="analysis-info">
+                    <div class="info-badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">📝 Custom Fundamentals</div>
+                    <p>Manually added or modified stock fundamental data points.</p>
+                </div>
+            </div>
+            <div class="table-container" style="margin-bottom:30px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Company Name</th>
+                            <th>PE Ratio</th>
+                            <th>EPS (₹)</th>
+                            <th>Revenue</th>
+                            <th>Net Profit</th>
+                            <th>ROE %</th>
+                            <th>ROCE %</th>
+                            <th>D/E Ratio</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fundTableBody">
+                        <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 20px;">No custom fundamentals added yet. Click 'Add Fundamental Data' above to add one.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= SECTORS PAGE ======= -->
+        <div class="page" id="page-sectors">
+            <div class="sector-dashboard-layout">
+                <!-- Left Column: Performance Chart -->
+                <div class="sector-left-panel">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>🏭 Sector Performance — Avg % Change</h3>
+                        </div>
+                        <div class="chart-container" style="height:620px;">
+                            <canvas id="sectorBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Sector Cards Grid -->
+                <div class="sector-right-panel">
+                    <div class="sector-grid" id="sectorGrid">
+                        <div class="loading-pulse">Loading sectors...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sector Rotation Table -->
+            <div class="analysis-header" style="margin-top: 30px; margin-bottom: 15px;">
+                <div class="analysis-info">
+                    <div class="info-badge">🔄 Sector Rotation Quadrants</div>
+                    <p>Track where the money is flowing over Short (1D) and Medium (30D) terms. Bubble size = Traded Value.</p>
+                </div>
+            </div>
+            
+            <div class="sector-chart-row" style="margin-bottom: 30px;">
+                <div class="chart-card full-width">
+                    <div class="chart-container" style="height: 500px; position: relative;">
+                        <!-- Background Quadrant Labels -->
+                        <div style="position: absolute; top: 10px; right: 10px; color: var(--green); opacity: 0.7; font-weight: bold; font-size: 1.2rem; pointer-events: none;">Leading ↗</div>
+                        <div style="position: absolute; top: 10px; left: 10px; color: var(--blue); opacity: 0.7; font-weight: bold; font-size: 1.2rem; pointer-events: none;">↖ Improving</div>
+                        <div style="position: absolute; bottom: 30px; right: 10px; color: var(--accent); opacity: 0.7; font-weight: bold; font-size: 1.2rem; pointer-events: none;">Weakening ↘</div>
+                        <div style="position: absolute; bottom: 30px; left: 10px; color: var(--red); opacity: 0.7; font-weight: bold; font-size: 1.2rem; pointer-events: none;">↙ Lagging</div>
+                        
+                        <canvas id="sectorRotationScatterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="sectorRotationTable">
+                    <thead>
+                        <tr>
+                            <th>Sector</th>
+                            <th>Total Value (Cr)</th>
+                            <th>1D Avg Change</th>
+                            <th>30D Avg Change</th>
+                            <th>365D Avg Change</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sectorRotationBody">
+                        <tr><td colspan="5" class="loading-row">Loading sector rotation...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= PORTFOLIO PAGE ======= -->
+        <div class="page" id="page-portfolio">
+
+            <!-- Summary Cards -->
+            <div class="pf-summary-row" id="pfSummaryRow">
+                <div class="pf-card">
+                    <div class="pf-card-label">💰 Total Invested</div>
+                    <div class="pf-card-val" id="pfInvested">₹--</div>
+                </div>
+                <div class="pf-card">
+                    <div class="pf-card-label">📈 Current Value</div>
+                    <div class="pf-card-val" id="pfCurrent">₹--</div>
+                </div>
+                <div class="pf-card pf-pnl-card" id="pfUnrealizedCard">
+                    <div class="pf-card-label">🎯 Unrealized P&amp;L</div>
+                    <div class="pf-card-val" id="pfUnrealized">₹--</div>
+                    <div class="pf-card-sub" id="pfUnrealizedPct">--%</div>
+                </div>
+                <div class="pf-card pf-pnl-card" id="pfRealizedCard">
+                    <div class="pf-card-label">✅ Realized P&amp;L (Booked)</div>
+                    <div class="pf-card-val" id="pfRealized">₹--</div>
+                </div>
+                <div class="pf-card">
+                    <div class="pf-card-label">📦 Holdings</div>
+                    <div class="pf-card-val" id="pfHoldings">--</div>
+                </div>
+                <div class="pf-card">
+                    <div class="pf-card-label">🔄 Total Trades</div>
+                    <div class="pf-card-val" id="pfTrades">--</div>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="analysis-header" style="margin-bottom:0;">
+                <div class="analysis-info">
+                    <div class="info-badge bullish">💼 Portfolio & P&amp;L Tracker</div>
+                    <p>Apni NSE holdings track karein with live P&amp;L.</p>
+                </div>
+                <div class="filter-row" style="gap:10px; flex-wrap:wrap;">
+                    <button class="btn-premium" onclick="openBuyModal()" style="background:linear-gradient(135deg,#14532d,#22c55e);">➕ Add Buy Trade</button>
+                    <button class="btn-premium" onclick="loadPortfolioPage()" style="background:linear-gradient(135deg,#1e3a5f,#3b82f6);">🔄 Refresh P&amp;L</button>
+                    <button class="btn-premium" onclick="showTradeHistory()" style="background:linear-gradient(135deg,#4c1d95,#8b5cf6);">📜 Trade History</button>
+                </div>
+            </div>
+
+            <!-- Holdings Table -->
+            <div class="table-container" style="margin-top:16px;">
+                <table class="data-table" id="portfolioTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>SYMBOL</th>
+                            <th>SECTOR</th>
+                            <th>QTY</th>
+                            <th>AVG BUY</th>
+                            <th>LTP</th>
+                            <th>INVESTED</th>
+                            <th>CURRENT</th>
+                            <th>P&amp;L ₹</th>
+                            <th>P&amp;L %</th>
+                            <th>DAY %</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolioTableBody">
+                        <tr><td colspan="12" style="text-align:center;" class="loading-pulse">Loading portfolio...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- BUY MODAL -->
+        <div class="modal" id="buyModal">
+            <div class="modal-content" style="max-width:480px;">
+                <div class="modal-header">
+                    <h2>➕ Add Buy Trade</h2>
+                    <span class="close-modal" onclick="closeBuyModal()">×</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+                    <div style="position:relative;">
+                        <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">STOCK SYMBOL *</label>
+                        <input type="text" id="pfSymbol" placeholder="Type to search... e.g. REL, TCS, HDFC" 
+                            class="filter-select" autocomplete="off"
+                            style="width:100%;margin-top:4px;text-transform:uppercase;" 
+                            oninput="this.value=this.value.toUpperCase(); pfSymbolSearch(this.value)"
+                            onkeydown="pfSymbolKeyNav(event)">
+                        <div id="pfSymbolDropdown" style="
+                            display:none; position:absolute; top:100%; left:0; right:0; z-index:9999;
+                            background:#1a2235; border:1px solid var(--border); border-top:none;
+                            border-radius:0 0 8px 8px; max-height:200px; overflow-y:auto;
+                            box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">QUANTITY *</label>
+                            <input type="number" id="pfQty" placeholder="e.g. 10" class="filter-select" style="width:100%;margin-top:4px;" min="0.001" step="any">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">BUY PRICE (₹) *</label>
+                            <input type="number" id="pfBuyPrice" placeholder="e.g. 2450.50" class="filter-select" style="width:100%;margin-top:4px;" min="0.01" step="any">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">BUY DATE *</label>
+                            <input type="date" id="pfBuyDate" class="filter-select" style="width:100%;margin-top:4px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">NOTES (optional)</label>
+                            <input type="text" id="pfNotes" placeholder="e.g. Breakout buy" class="filter-select" style="width:100%;margin-top:4px;">
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;font-size:0.8rem;color:var(--text-muted);">
+                        💡 <strong>Tip:</strong> Agar yeh symbol pehle se portfolio mein hai, toh automatically average down ho jayega.
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:4px;">
+                        <button class="btn-premium" onclick="submitBuyTrade()" style="flex:1;background:linear-gradient(135deg,#14532d,#22c55e);font-size:1rem;padding:12px;">✅ Add to Portfolio</button>
+                        <button class="btn-premium" onclick="closeBuyModal()" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);">Cancel</button>
+                    </div>
+                    <div id="buyMsg" style="display:none;text-align:center;font-weight:600;padding:8px;border-radius:6px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SELL MODAL -->
+        <div class="modal" id="sellModal">
+            <div class="modal-content" style="max-width:420px;">
+                <div class="modal-header">
+                    <h2>💸 Sell Trade</h2>
+                    <span class="close-modal" onclick="document.getElementById('sellModal').style.display='none'">×</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);" id="sellSymbolLabel">--</div>
+                    <input type="hidden" id="sellSymbolHidden">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">SELL QTY *</label>
+                            <input type="number" id="pfSellQty" class="filter-select" style="width:100%;margin-top:4px;" min="0.001" step="any">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">SELL PRICE (₹) *</label>
+                            <input type="number" id="pfSellPrice" class="filter-select" style="width:100%;margin-top:4px;" min="0.01" step="any">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">SELL DATE *</label>
+                        <input type="date" id="pfSellDate" class="filter-select" style="width:100%;margin-top:4px;">
+                    </div>
+                    <div id="sellPnlPreview" style="display:none;padding:10px;border-radius:8px;font-weight:700;font-size:1rem;text-align:center;"></div>
+                    <div style="display:flex;gap:10px;margin-top:4px;">
+                        <button class="btn-premium" onclick="submitSellTrade()" style="flex:1;background:linear-gradient(135deg,#7f1d1d,#ef4444);font-size:1rem;padding:12px;">✅ Confirm Sell</button>
+                        <button class="btn-premium" onclick="document.getElementById('sellModal').style.display='none'" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);">Cancel</button>
+                    </div>
+                    <div id="sellMsg" style="display:none;text-align:center;font-weight:600;padding:8px;border-radius:6px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= WATCHLIST PAGE ======= -->
+        <div class="page" id="page-watchlist">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge bullish">⭐ My Watchlist</div>
+                    <p>Your pinned favorite stocks for quick tracking.</p>
+                </div>
+                <div class="filter-row" style="gap:10px; flex-wrap:wrap; align-items:center;">
+                    <button class="btn-premium" onclick="exportTableToCSV('watchlistTableBody', 'Watchlist.csv')">⬇️ Export CSV</button>
+                    <button class="btn-premium" onclick="exportWatchlistTxt()" style="background: linear-gradient(135deg,#0f766e,#14b8a6);" title="Download as .txt file (one symbol per line)">📄 Export Notepad (.txt)</button>
+                    <button class="btn-premium" onclick="copyWatchlistForTradingView()" style="background: linear-gradient(135deg,#1d4ed8,#3b82f6);" title="Copy in NSE:SYMBOL format — paste directly into TradingView Watchlist import">📋 Copy for TradingView</button>
+                    <span id="tvCopyMsg" style="display:none; color:#22c55e; font-size:0.82rem; font-weight:600; animation: fadeIn 0.3s;">✅ Copied! Paste in TradingView → Watchlist → Import</span>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>SYMBOL</th>
+                            <th>SECTOR</th>
+                            <th>LTP</th>
+                            <th>OPEN</th>
+                            <th>CHANGE %</th>
+                            <th>VOLUME</th>
+                            <th>VALUE (CR)</th>
+                            <th>52W H</th>
+                            <th>FROM HIGH%</th>
+                            <th>50D MA</th>
+                            <th>200D MA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="watchlistTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= ALL STOCKS PAGE ======= -->
+        <div class="page" id="page-allstocks">
+            <div class="toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="stockSearch" placeholder="Search symbol..." oninput="filterAllStocks()" class="search-input">
+                </div>
+                <select id="allStockSectorFilter" class="filter-select" onchange="filterAllStocks()">
+                    <option value="">All Sectors</option>
+                </select>
+                <select id="allStockSort" class="filter-select" onchange="sortAllStocks()">
+                    <option value="Value">Sort: Value ↓</option>
+                    <option value="PctChange_desc">Sort: % Change ↓</option>
+                    <option value="PctChange_asc">Sort: % Change ↑</option>
+                    <option value="Chng30D_desc">Sort: 30D % ↓</option>
+                    <option value="Volume_desc">Sort: Volume ↓</option>
+                    <option value="Symbol_asc">Sort: A-Z</option>
+                </select>
+                <div class="stock-count-badge" id="stockCount">0 stocks</div>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="allStocksTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortAllStocksBy('Symbol')">#</th>
+                            <th onclick="sortAllStocksBy('Symbol')">Symbol ⇅</th>
+                            <th>Sector</th>
+                            <th onclick="sortAllStocksBy('LTP')">LTP ⇅</th>
+                            <th onclick="sortAllStocksBy('Change')">Change ⇅</th>
+                            <th onclick="sortAllStocksBy('PctChange')">% Change ⇅</th>
+                            <th onclick="sortAllStocksBy('Volume')">Volume ⇅</th>
+                            <th onclick="sortAllStocksBy('Value')">Value (Cr) ⇅</th>
+                            <th>52W H</th>
+                            <th>52W L</th>
+                            <th onclick="sortAllStocksBy('Chng30D')">30D % ⇅</th>
+                            <th onclick="sortAllStocksBy('Chng365D')">365D % ⇅</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allStocksBody">
+                        <tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading all stocks...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======= IMPORT PAGE ======= -->
+        <div class="page" id="page-import">
+            <div class="import-container">
+                <div class="import-hero">
+                    <div class="import-icon">📁</div>
+                    <h2>Import NSE Market Data</h2>
+                    <p>NSE की Nifty 500 CSV file import करें। Data permanently SQL Server में store होगा।</p>
+                    <a href="https://www.nseindia.com/market-data/live-equity-market?symbol=NIFTY%20500" target="_blank" style="color:var(--primary); text-decoration:none; display:inline-block; margin-top:10px; font-weight:bold; font-size: 0.9rem;">
+                        📥 Download Data from NSE Website ↗
+                    </a>
+                </div>
+                <div style="text-align: center; margin: 30px 0 10px 0;">
+                    <p style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.9rem;">OR Update Data Automatically via Yahoo Finance</p>
+                    <button onclick="autoFetchData()" id="btnAutoFetch" class="btn-premium" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 15px;">
+                        ⚡ Auto Fetch Live Data
+                    </button>
+                    <div id="autoFetchStatus" style="margin-top: 10px; font-size: 0.85rem; color: var(--text-muted);">
+                        Last Updated: <span id="lastUpdateDateTime" style="font-weight:bold;color:var(--text-light);">Checking...</span>
+                    </div>
+                </div>
+                <div style="text-align:center;margin:20px 0;color:var(--text-muted);font-weight:bold;">--- OR MANUAL UPLOAD ---</div>
+
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFileInput').click()">
+                    <div class="drop-zone-inner">
+                        <div class="drop-icon">⬆️</div>
+                        <p class="drop-text">CSV file drag & drop करें या <span class="drop-link">यहाँ click करें</span></p>
+                        <p class="drop-hint">Format: MW-NIFTY-500-DD-Mon-YYYY.csv</p>
+                    </div>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+                </div>
+
+                <!-- Import Progress -->
+                <div class="import-progress" id="importProgress" style="display:none">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">Importing...</p>
+                </div>
+
+                <!-- Import Result -->
+                <div class="import-result" id="importResult" style="display:none"></div>
+
+                <!-- Import History -->
+                <div class="import-history">
+                    <h3>📜 Import History</h3>
+                    <table class="data-table" id="importHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th>Data Date</th>
+                                <th>Records</th>
+                                <th>Imported At</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="importHistoryBody">
+                            <tr><td colspan="5" class="loading-row">Loading history...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <!-- SECTOR MODAL -->
+    <div id="sectorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalSectorTitle">Sector Stocks</h2>
+                <span class="close-modal" onclick="closeSectorModal()">&times;</span>
+            </div>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>LTP</th>
+                        <th>Change</th>
+                        <th>% Change</th>
+                        <th>Value (Cr)</th>
+                    </tr>
+                </thead>
+                <tbody id="modalStocksBody">
+                    <!-- Loaded dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- STOCK DETAILS MODAL -->
+    <div id="stockModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h2 id="modalStockTitle">Stock Details</h2>
+                    <div class="chart-toggle-group">
+                        <button class="chart-toggle-btn active" id="btn-chart-line" onclick="setChartType('line')">Line</button>
+                        <button class="chart-toggle-btn" id="btn-chart-candle" onclick="setChartType('candle')">Candle</button>
+                    </div>
+                    <label style="color: var(--text-muted); font-size: 0.85rem; display: flex; align-items: center; gap: 5px; cursor: pointer; margin-left: 10px;">
+                        <input type="checkbox" id="superTrendToggle" onchange="toggleSuperTrend()" style="cursor: pointer;">
+                        SuperTrend (10,3)
+                    </label>
+                </div>
+                <span class="close-modal" onclick="closeStockModal()">&times;</span>
+            </div>
+            <div class="stock-modal-body" style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="stock-stats" id="modalStockStats" style="display: flex; gap: 20px; font-size: 1.1rem; color: var(--text-primary);">
+                    <!-- Stats will go here -->
+                </div>
+                <div class="chart-container" style="height: 400px; width: 100%; position: relative;">
+                    <canvas id="stockHistoryChart"></canvas>
+                    <div id="lightweightChartContainer" style="display: none; width: 100%; height: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======= RESULTS CALENDAR PAGE ======= -->
+    <div class="page" id="page-results">
+        <div class="analysis-header" style="margin-bottom:18px;">
+            <div class="analysis-info">
+                <div class="info-badge">📊 Earnings Results Calendar</div>
+                <p>Track upcoming quarterly results, recent declarations, and past earnings history.</p>
+            </div>
+            <button class="btn-primary auth-required" data-display="inline-flex" onclick="openAddResultModal()" id="btnAddResult" style="display:none">
+                ➕ Add Result Date
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="results-tabs">
+            <button class="results-tab active" onclick="switchResultsTab('upcoming')" id="rtab-upcoming">
+                🔔 Upcoming <span id="cnt-upcoming" class="tab-cnt"></span>
+            </button>
+            <button class="results-tab" onclick="switchResultsTab('recent')" id="rtab-recent">
+                🆕 Recent (7D) <span id="cnt-recent" class="tab-cnt"></span>
+            </button>
+            <button class="results-tab" onclick="switchResultsTab('past')" id="rtab-past">
+                📁 Past <span id="cnt-past" class="tab-cnt"></span>
+            </button>
+        </div>
+
+        <!-- Upcoming Tab -->
+        <div id="results-upcoming" class="results-tab-content">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>Symbol</th><th>Quarter</th><th>Result Date</th>
+                        <th>Days Left</th><th>Est Revenue (Cr)</th>
+                        <th>Est Profit (Cr)</th><th>Est EPS</th>
+                        <th>LTP</th><th>Action</th>
+                    </tr></thead>
+                    <tbody id="tbody-upcoming"><tr><td colspan="9" class="loading-row">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Tab -->
+        <div id="results-recent" class="results-tab-content" style="display:none">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>Symbol</th><th>Quarter</th><th>Date</th>
+                        <th>Beat/Miss</th><th>Act Revenue</th><th>Act Profit</th>
+                        <th>YoY Rev%</th><th>YoY Profit%</th><th>LTP</th><th>Action</th>
+                    </tr></thead>
+                    <tbody id="tbody-recent"><tr><td colspan="10" class="loading-row">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Past Tab -->
+        <div id="results-past" class="results-tab-content" style="display:none">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>Symbol</th><th>Quarter</th><th>Date</th>
+                        <th>Beat/Miss</th><th>Act Revenue</th><th>Act Profit</th>
+                        <th>YoY Rev%</th><th>YoY Profit%</th><th>LTP</th><th>Action</th>
+                    </tr></thead>
+                    <tbody id="tbody-past"><tr><td colspan="10" class="loading-row">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    </div><!-- /main-content -->
+
+    <!-- ======= AUTH MODAL (Login / Register) ======= -->
+    <div id="authModal" class="modal" style="z-index:9999;">
+        <div class="auth-modal-card">
+            <!-- Header with gradient -->
+            <div class="auth-modal-header">
+                <div class="auth-logo-wrap">
+                    <div class="auth-logo-icon">📈</div>
+                    <div>
+                        <div class="auth-logo-title">StockScanner</div>
+                        <div class="auth-logo-sub">NSE Nifty 500 Analytics</div>
+                    </div>
+                </div>
+                <span class="auth-close-btn" onclick="closeAuthModal()">&times;</span>
+            </div>
+
+            <!-- Tab switcher -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">🔑 Login</button>
+                <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">✨ Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="formLogin" class="auth-form">
+                <div class="auth-input-group">
+                    <span class="auth-input-icon">👤</span>
+                    <input type="text" id="loginUsername" class="auth-input" placeholder="Username" autocomplete="username">
+                </div>
+                <div class="auth-input-group">
+                    <span class="auth-input-icon">🔒</span>
+                    <input type="password" id="loginPassword" class="auth-input" placeholder="Password" autocomplete="current-password">
+                </div>
+                <button class="auth-submit-btn" onclick="doLogin()">
+                    <span>Login</span> <span style="font-size:1rem">→</span>
+                </button>
+                <div id="loginError" class="auth-error"></div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="formRegister" class="auth-form" style="display:none;">
+                <div class="auth-input-group">
+                    <span class="auth-input-icon">👤</span>
+                    <input type="text" id="regUsername" class="auth-input" placeholder="Choose a username">
+                </div>
+                <div class="auth-input-group">
+                    <span class="auth-input-icon">✉️</span>
+                    <input type="email" id="regEmail" class="auth-input" placeholder="Email address">
+                </div>
+                <div class="auth-input-group">
+                    <span class="auth-input-icon">🔒</span>
+                    <input type="password" id="regPassword" class="auth-input" placeholder="Password (min 6 chars)">
+                </div>
+                <button class="auth-submit-btn" onclick="doRegister()">
+                    <span>Create Account</span> <span style="font-size:1rem">✓</span>
+                </button>
+                <div id="regError" class="auth-error"></div>
+                <div id="regSuccess" style="color:#22c55e;font-size:0.82rem;margin-top:8px;text-align:center;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======= FUNDAMENTALS MODAL ======= -->
+    <div id="fundModal" class="modal">
+        <div class="modal-content" style="max-width:580px;">
+            <div class="modal-header">
+                <h2 id="fundModalTitle">💎 Add Fundamentals</h2>
+                <span class="close-modal" onclick="closeFundModal()">&times;</span>
+            </div>
+            <div style="padding:20px;">
+                <input type="hidden" id="fundSymbolHidden">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Symbol *</label>
+                        <input type="text" id="fundSymbol" class="form-input" placeholder="e.g. RELIANCE" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Company Name</label>
+                        <input type="text" id="fundCompany" class="form-input" placeholder="Reliance Industries Ltd">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">P/E Ratio</label>
+                        <input type="number" id="fundPE" class="form-input" placeholder="22.5" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">EPS (₹)</label>
+                        <input type="number" id="fundEPS" class="form-input" placeholder="45.20" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Revenue (Crores)</label>
+                        <input type="number" id="fundRevenue" class="form-input" placeholder="50000" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Net Profit (Crores)</label>
+                        <input type="number" id="fundProfit" class="form-input" placeholder="8000" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ROE (%)</label>
+                        <input type="number" id="fundROE" class="form-input" placeholder="18.5" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ROCE (%)</label>
+                        <input type="number" id="fundROCE" class="form-input" placeholder="22.0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Debt/Equity</label>
+                        <input type="number" id="fundDE" class="form-input" placeholder="0.35" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Market Cap (Cr)</label>
+                        <input type="number" id="fundMCap" class="form-input" placeholder="1200000" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Book Value (₹)</label>
+                        <input type="number" id="fundBV" class="form-input" placeholder="250" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dividend Yield (%)</label>
+                        <input type="number" id="fundDY" class="form-input" placeholder="1.2" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:4px;">
+                    <label class="form-label">Notes / Analysis</label>
+                    <textarea id="fundNotes" class="form-input" rows="3" placeholder="Your analysis notes..."></textarea>
+                </div>
+                <div id="fundError" style="color:#ef4444;font-size:0.8rem;margin-top:6px;"></div>
+                <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="closeFundModal()">Cancel</button>
+                    <button class="btn-primary" onclick="saveFundamentals()">💾 Save Fundamentals</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======= ADD RESULT MODAL ======= -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2 id="resultModalTitle">📊 Add Result Date</h2>
+                <span class="close-modal" onclick="closeResultModal()">&times;</span>
+            </div>
+            <div style="padding:20px;">
+                <input type="hidden" id="resultEditId">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Symbol *</label>
+                        <input type="text" id="resultSymbol" class="form-input" placeholder="e.g. INFY" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Quarter</label>
+                        <input type="text" id="resultQuarter" class="form-input" placeholder="Q1FY27">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Result Date *</label>
+                        <input type="date" id="resultDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select id="resultStatus" class="form-input">
+                            <option value="Upcoming">Upcoming</option>
+                            <option value="Declared">Declared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Est Revenue (Cr)</label>
+                        <input type="number" id="resultEstRev" class="form-input" placeholder="Optional" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Est Profit (Cr)</label>
+                        <input type="number" id="resultEstPro" class="form-input" placeholder="Optional" step="0.01">
+                    </div>
+                    <!-- Actual results (shown when updating) -->
+                    <div class="form-group" id="actualFields" style="display:none;">
+                        <label class="form-label">Act Revenue (Cr)</label>
+                        <input type="number" id="resultActRev" class="form-input" step="0.01">
+                    </div>
+                    <div class="form-group" id="actualFieldsP" style="display:none;">
+                        <label class="form-label">Act Profit (Cr)</label>
+                        <input type="number" id="resultActPro" class="form-input" step="0.01">
+                    </div>
+                    <div class="form-group" id="actualFieldsE" style="display:none;">
+                        <label class="form-label">YoY Revenue %</label>
+                        <input type="number" id="resultYoYRev" class="form-input" step="0.01">
+                    </div>
+                    <div class="form-group" id="actualFieldsF" style="display:none;">
+                        <label class="form-label">YoY Profit %</label>
+                        <input type="number" id="resultYoYPro" class="form-input" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group" id="beatMissField" style="display:none;margin-top:4px;">
+                    <label class="form-label">Beat / Miss</label>
+                    <select id="resultBeatMiss" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="Beat">✅ Beat</option>
+                        <option value="Miss">❌ Miss</option>
+                        <option value="In-Line">➡️ In-Line</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-top:4px;">
+                    <label class="form-label">Notes</label>
+                    <textarea id="resultNotes" class="form-input" rows="2" placeholder="Optional notes..."></textarea>
+                </div>
+                <div id="resultError" style="color:#ef4444;font-size:0.8rem;margin-top:6px;"></div>
+                <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="closeResultModal()">Cancel</button>
+                    <button class="btn-primary" onclick="saveResult()">💾 Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/app.js?v=9"></script>
+    <script src="js/auth_results.js"></script>
+</body>
+</html>
