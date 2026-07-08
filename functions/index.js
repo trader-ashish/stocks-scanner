@@ -2,9 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin SDK
-if (admin.apps.length === 0) {
-    admin.initializeApp();
-}
+require('./db');
 
 const express = require('express');
 const cors = require('cors');
