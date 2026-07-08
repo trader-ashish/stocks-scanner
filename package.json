@@ -1,0 +1,12 @@
+{
+  "name": "stocks-scanner-firebase-root",
+  "version": "1.0.0",
+  "description": "Root configuration for Firebase Stock Scanner",
+  "scripts": {
+    "serve": "npx firebase emulators:start",
+    "deploy": "npx firebase deploy"
+  },
+  "devDependencies": {
+    "firebase-tools": "^12.0.0"
+  }
+}
