@@ -102,5 +102,62 @@ router.get('/has-users', async (req, res) => {
     }
 });
 
+// GET /api/auth/users (Admin-only list of all users)
+router.get('/users', authMiddleware, async (req, res) => {
+    try {
+        if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({ error: 'Access denied: Admin only' });
+        }
+        const snap = await db.collection('users').get();
+        const users = snap.docs.map(doc => {
+            const u = doc.data();
+            return {
+                Id: doc.id,
+                Username: u.Username,
+                Email: u.Email,
+                Role: u.Role ? u.Role.toLowerCase() : 'client',
+                CreatedAt: u.CreatedAt
+            };
+        });
+        res.json(users);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/auth/users/update-role (Admin-only update user role)
+router.post('/users/update-role', authMiddleware, async (req, res) => {
+    try {
+        if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({ error: 'Access denied: Admin only' });
+        }
+        const { userId, role } = req.body;
+        if (!userId || !role) {
+            return res.status(400).json({ error: 'userId and role required' });
+        }
+        
+        let targetRole = 'Client';
+        if (role.toLowerCase() === 'admin') {
+            targetRole = 'Admin';
+        }
+        
+        // Prevent admin from demoting self
+        if (userId === req.user.id) {
+            return res.status(400).json({ error: 'You cannot change your own role' });
+        }
+
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        await userRef.update({ Role: targetRole });
+        res.json({ success: true, message: 'User role updated successfully' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;
 module.exports.authMiddleware = authMiddleware;

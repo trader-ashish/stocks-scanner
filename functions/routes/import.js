@@ -5,6 +5,7 @@ const csv = require('csv-parser');
 const stream = require('stream');
 const { db, clearCache } = require('../db');
 const sectorMappings = require('../sector_mappings.json');
+const { authMiddleware } = require('./auth');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -25,7 +26,10 @@ function parseVolume(str) {
 }
 
 // POST /api/import/csv
-router.post('/csv', upload.single('csvFile'), async (req, res) => {
+router.post('/csv', authMiddleware, upload.single('csvFile'), async (req, res) => {
+    if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+        return res.status(403).json({ error: 'Access denied: Admin only' });
+    }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const fileName = req.file.originalname;
@@ -135,8 +139,11 @@ router.get('/dates', async (req, res) => {
 });
 
 // GET /api/import/logs
-router.get('/logs', async (req, res) => {
+router.get('/logs', authMiddleware, async (req, res) => {
     try {
+        if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({ error: 'Access denied: Admin only' });
+        }
         const snap = await db.collection('import_logs').orderBy('ImportedAt', 'desc').limit(20).get();
         const logs = snap.docs.map(doc => {
             const data = doc.data();
@@ -156,8 +163,11 @@ router.get('/logs', async (req, res) => {
 });
 
 // POST /api/import/auto-fetch
-router.post('/auto-fetch', async (req, res) => {
+router.post('/auto-fetch', authMiddleware, async (req, res) => {
     try {
+        if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({ error: 'Access denied: Admin only' });
+        }
         const YahooFinance = require('yahoo-finance2').default;
         const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 

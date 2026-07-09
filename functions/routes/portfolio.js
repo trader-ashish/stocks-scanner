@@ -2,9 +2,10 @@ const express = require('express');
 const router  = express.Router();
 const { db, getStocksForDate } = require('../db');
 const sectorMappings = require('../sector_mappings.json');
+const { authMiddleware } = require('./auth');
 
 // GET /api/portfolio — all current holdings
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
         // Fetch latest stocks for joining LTP
         const snapImports = await db.collection('imports').get();
@@ -21,8 +22,12 @@ router.get('/', async (req, res) => {
             stocksMap[s.Symbol] = s;
         });
 
-        // Get holdings
-        const snapPortfolio = await db.collection('portfolio').where('Quantity', '>', 0).get();
+        // Get holdings filtered by current user
+        const snapPortfolio = await db.collection('portfolio')
+            .where('UserId', '==', req.user.id)
+            .where('Quantity', '>', 0)
+            .get();
+            
         const holdings = snapPortfolio.docs.map(doc => {
             const p = doc.data();
             const s = stocksMap[p.Symbol] || {};
@@ -42,9 +47,12 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/portfolio/trades — trade history
-router.get('/trades', async (req, res) => {
+router.get('/trades', authMiddleware, async (req, res) => {
     try {
-        const snapTrades = await db.collection('trades').get();
+        const snapTrades = await db.collection('trades')
+            .where('UserId', '==', req.user.id)
+            .get();
+            
         const trades = snapTrades.docs.map(doc => ({
             Id: doc.id,
             ...doc.data()
@@ -64,7 +72,7 @@ router.get('/trades', async (req, res) => {
 });
 
 // GET /api/portfolio/summary — aggregate P&L
-router.get('/summary', async (req, res) => {
+router.get('/summary', authMiddleware, async (req, res) => {
     try {
         // Fetch latest stocks for joining
         const snapImports = await db.collection('imports').get();
@@ -81,8 +89,11 @@ router.get('/summary', async (req, res) => {
             stocksMap[s.Symbol] = s;
         });
 
-        // Sum holdings in memory
-        const snapPortfolio = await db.collection('portfolio').where('Quantity', '>', 0).get();
+        // Sum holdings in memory for this user
+        const snapPortfolio = await db.collection('portfolio')
+            .where('UserId', '==', req.user.id)
+            .where('Quantity', '>', 0)
+            .get();
         
         let TotalInvested = 0;
         let CurrentValue = 0;
@@ -102,8 +113,12 @@ router.get('/summary', async (req, res) => {
             TotalHoldings++;
         });
 
-        // Sum realized P&L from sell trades
-        const snapTrades = await db.collection('trades').where('TradeType', '==', 'SELL').get();
+        // Sum realized P&L from sell trades for this user
+        const snapTrades = await db.collection('trades')
+            .where('UserId', '==', req.user.id)
+            .where('TradeType', '==', 'SELL')
+            .get();
+            
         let RealizedPnL = 0;
         let TotalTrades = 0;
 
@@ -127,7 +142,7 @@ router.get('/summary', async (req, res) => {
 });
 
 // POST /api/portfolio/buy — add / average down
-router.post('/buy', async (req, res) => {
+router.post('/buy', authMiddleware, async (req, res) => {
     try {
         const { symbol, quantity, buyPrice, buyDate, notes } = req.body;
         if (!symbol || !quantity || !buyPrice || !buyDate)
@@ -137,7 +152,9 @@ router.post('/buy', async (req, res) => {
         const qtyVal = parseFloat(quantity);
         const priceVal = parseFloat(buyPrice);
 
-        const holdingRef = db.collection('portfolio').doc(sym);
+        // Document ID is user-specific to prevent conflict/overwriting
+        const holdingDocId = `${req.user.id}_${sym}`;
+        const holdingRef = db.collection('portfolio').doc(holdingDocId);
         const holdingDoc = await holdingRef.get();
 
         if (holdingDoc.exists && holdingDoc.data().Quantity > 0) {
@@ -160,6 +177,7 @@ router.post('/buy', async (req, res) => {
                 AvgBuyPrice: priceVal,
                 BuyDate: buyDate,
                 Notes: notes || '',
+                UserId: req.user.id,
                 CreatedAt: new Date().toISOString()
             });
         }
@@ -173,6 +191,7 @@ router.post('/buy', async (req, res) => {
             TradeDate: buyDate,
             RealizedPnL: 0,
             Notes: notes || '',
+            UserId: req.user.id,
             CreatedAt: new Date().toISOString()
         });
 
@@ -183,7 +202,7 @@ router.post('/buy', async (req, res) => {
 });
 
 // POST /api/portfolio/sell — sell shares
-router.post('/sell', async (req, res) => {
+router.post('/sell', authMiddleware, async (req, res) => {
     try {
         const { symbol, quantity, sellPrice, sellDate, notes } = req.body;
         if (!symbol || !quantity || !sellPrice || !sellDate)
@@ -193,7 +212,8 @@ router.post('/sell', async (req, res) => {
         const sellQty = parseFloat(quantity);
         const priceVal = parseFloat(sellPrice);
 
-        const holdingRef = db.collection('portfolio').doc(sym);
+        const holdingDocId = `${req.user.id}_${sym}`;
+        const holdingRef = db.collection('portfolio').doc(holdingDocId);
         const holdingDoc = await holdingRef.get();
 
         if (!holdingDoc.exists || holdingDoc.data().Quantity <= 0) {
@@ -222,6 +242,7 @@ router.post('/sell', async (req, res) => {
             TradeDate: sellDate,
             RealizedPnL: pnl,
             Notes: notes || '',
+            UserId: req.user.id,
             CreatedAt: new Date().toISOString()
         });
 
@@ -232,10 +253,16 @@ router.post('/sell', async (req, res) => {
 });
 
 // DELETE /api/portfolio/:id — remove holding (hard delete)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
     try {
-        await db.collection('portfolio').doc(req.params.id).delete();
-        res.json({ success: true });
+        const docRef = db.collection('portfolio').doc(req.params.id);
+        const doc = await docRef.get();
+        if (doc.exists && doc.data().UserId === req.user.id) {
+            await docRef.delete();
+            res.json({ success: true });
+        } else {
+            res.status(403).json({ error: 'Access denied' });
+        }
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
