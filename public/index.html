@@ -54,6 +54,14 @@
                 <span class="nav-icon">🎯</span>
                 <span class="nav-label">SuperTrend Scans</span>
             </a>
+            <a href="#" class="nav-item" data-page="vol-breakout" id="nav-vol-breakout">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Volume Breakout</span>
+            </a>
+            <a href="#" class="nav-item" data-page="range-breakout" id="nav-range-breakout">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Consolidation Scan</span>
+            </a>
             <a href="#" class="nav-item" data-page="fundamentals" id="nav-fundamentals">
                 <span class="nav-icon">💎</span>
                 <span class="nav-label">Fundamental Gems</span>
@@ -74,9 +82,13 @@
                 <span class="nav-icon">📋</span>
                 <span class="nav-label">All Stocks</span>
             </a>
-            <a href="#" class="nav-item" data-page="import" id="nav-import">
+            <a href="#" class="nav-item" data-page="import" id="nav-import" style="display:none;">
                 <span class="nav-icon">📁</span>
                 <span class="nav-label">Import Data</span>
+            </a>
+            <a href="#" class="nav-item" data-page="manage-users" id="nav-manage-users" style="display:none;">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Manage Users</span>
             </a>
             <a href="#" class="nav-item" data-page="results" id="nav-results">
                 <span class="nav-icon">📊</span>
@@ -114,6 +126,14 @@
             <div style="margin-top:10px; font-size:0.65rem; color:#ef4444; background:rgba(239,68,68,0.08); padding:5px 6px; border-radius:4px;">
                 ⚠️ For educational &amp; informational purposes only.
             </div>
+            
+            <!-- Branding -->
+            <div style="margin-top:12px; font-size:0.68rem; color:var(--text-muted); text-align:center; line-height:1.4; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">
+                Design &amp; Development by<br>
+                © <span style="color:#3b82f6; font-weight:600;">Ashish Mishra</span><br>
+                Professional Trading Dashboard<br>
+                Market Intelligence Solutions
+            </div>
         </div>
     </nav>
 
@@ -133,7 +153,7 @@
                         <option value="">Latest</option>
                     </select>
                 </div>
-                <div class="live-sync-wrap" style="display:flex; align-items:center; gap:8px;">
+                <div class="live-sync-wrap" id="liveSyncWrap" style="display:none; align-items:center; gap:8px;">
                     <label style="font-size: 0.8rem; font-weight:600; color:var(--text-secondary);">Live Sync (5m)</label>
                     <label class="switch">
                         <input type="checkbox" id="liveSyncToggle" onchange="toggleLiveSync()">
@@ -843,11 +863,11 @@
                         <tr>
                             <th>Symbol</th>
                             <th>Sector</th>
-                            <th>LTP</th>
-                            <th>Change %</th>
-                            <th>Volume</th>
-                            <th>Value (Cr)</th>
                             <th>Breakout Date</th>
+                            <th>Breakout Price</th>
+                            <th>Current Price</th>
+                            <th>Movement %</th>
+                            <th>Details</th>
                             <th>Chart</th>
                         </tr>
                     </thead>
@@ -857,6 +877,97 @@
                 </table>
             </div>
         </div>
+
+
+        <!-- ======= VOLUME BREAKOUT SCANS PAGE ======= -->
+        <div class="page" id="page-vol-breakout">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">📈 Volume Breakout Scans</div>
+                    <p>Live scanner that checks all Nifty 500 stocks to find volume breakouts today (Volume > 3x of 20D average and Price gain >= 2%).</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" id="btnRunVolBreakout" onclick="runVolumeBreakoutScan()" style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 10px 20px;">
+                        ▶️ Run Live Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('volBreakoutTableBody', 'VolumeBreakouts.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="volScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: var(--accent);">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Scanning 500 stocks on Yahoo Finance...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This usually takes 20-30 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="volBreakoutTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>Breakout Date</th>
+                            <th>Breakout Price</th>
+                            <th>Current Price</th>
+                            <th>Movement %</th>
+                            <th>Details</th>
+                            <th>Chart</th>
+                        </tr>
+                    </thead>
+                    <tbody id="volBreakoutTableBody">
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Live Scan' to find today's volume breakouts.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <!-- ======= CONSOLIDATION BREAKOUT SCANS PAGE ======= -->
+        <div class="page" id="page-range-breakout">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3);">📦 Consolidation / Range Breakout Scans</div>
+                    <p>Live scanner that finds Nifty 500 stocks consolidating in a tight range (<= 6%) over 10 sessions and breaking out today with elevated volume (> 1.3x).</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" id="btnRunRangeBreakout" onclick="runRangeBreakoutScan()" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 10px 20px;">
+                        ▶️ Run Live Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('rangeBreakoutTableBody', 'ConsolidationBreakouts.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="rangeScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: var(--accent);">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Scanning 500 stocks on Yahoo Finance...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This usually takes 20-30 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="rangeBreakoutTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>Breakout Date</th>
+                            <th>Breakout Price</th>
+                            <th>Current Price</th>
+                            <th>Movement %</th>
+                            <th>Details</th>
+                            <th>Chart</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rangeBreakoutTableBody">
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Live Scan' to find today's range breakouts.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
 
         <!-- ======= FUNDAMENTALS PAGE ======= -->
         <div class="page" id="page-fundamentals">
@@ -1423,6 +1534,34 @@
                     <tbody id="tbody-past"><tr><td colspan="10" class="loading-row">Loading...</td></tr></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- ======= MANAGE USERS PAGE ======= -->
+    <div class="page" id="page-manage-users">
+        <div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 style="font-size: 1.6rem; font-weight: 700; color: var(--text-primary);">👥 User Access Management</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Promote users to admins or demote them to restrict feature accesses.</p>
+            </div>
+            <button onclick="loadManageUsersPage()" class="btn-refresh" style="padding: 8px 16px; font-size: 0.8rem;">🔄 Refresh Users</button>
+        </div>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Current Role</th>
+                        <th>Registered Date</th>
+                        <th>Change Access</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-users">
+                    <tr><td colspan="5" class="loading-row">Loading users...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
