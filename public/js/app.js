@@ -2,7 +2,7 @@
 // app.js - Nifty 500 Stock Scanner Frontend Logic
 // ============================================================
 
-const API = '/api';
+const API = 'http://localhost:3000/api';
 
 // ===== STATE =====
 let state = {
@@ -110,6 +110,8 @@ async function navigateTo(page) {
         swing:      ['Swing Picks', 'Top Momentum Stocks for Swing'],
         breakout:   ['Breakout Stocks', 'Near 52-Week High Breakout Candidates'],
         supertrend: ['SuperTrend Scans', 'Live Fresh Bullish Breakouts'],
+        'vol-breakout': ['Volume Breakout Scans', 'Live Volume Spikes with Positive Price Action'],
+        'range-breakout': ['Consolidation Breakout Scans', 'Live Tight Range Breakouts'],
         fundamentals: ['Fundamental Gems', 'Top 20 Strongest Fundamental Stocks'],
         sectors:    ['Sector Analysis', 'Sector-wise Performance & Insights'],
         watchlist:  ['My Watchlist', 'Your Starred Stocks'],
@@ -118,11 +120,12 @@ async function navigateTo(page) {
         import:     ['Import Data', 'Upload NSE CSV Market Data'],
         results:    ['Results Calendar', 'Upcoming & Past Quarterly Earnings'],
         indices:    ['Global & GIFT Nifty', 'Live International Markets & GIFT Nifty Ticker'],
+        'manage-users': ['User Access Management', 'Control user access permissions and role elevations'],
     };
     const [title, sub] = titles[page] || ['', ''];
     document.getElementById('pageTitle').textContent = title;
     document.getElementById('pageSubtitle').textContent = sub;
-
+ 
     // Load page data
     switch(page) {
         case 'dashboard':  await loadDashboard(); break;
@@ -131,7 +134,9 @@ async function navigateTo(page) {
         case 'weekly':     await loadWeeklyData(); break;
         case 'swing':      await loadSwingData(); break;
         case 'breakout':   await loadBreakoutData(); break;
-        case 'supertrend': /* manual trigger via button */ break;
+        case 'supertrend': await loadSuperTrendHistory(); break;
+        case 'vol-breakout': await loadVolumeBreakoutHistory(); break;
+        case 'range-breakout': await loadRangeBreakoutHistory(); break;
         case 'fundamentals': await loadFundamentalsTable(); break;
         case 'sectors':    await loadSectorPage(); break;
         case 'watchlist':  await loadWatchlistData(); break;
@@ -139,6 +144,7 @@ async function navigateTo(page) {
         case 'allstocks':  await loadAllStocks(); break;
         case 'import':     await loadImportHistory(); break;
         case 'results':    await loadResultsPage(); break;
+        case 'manage-users': await loadManageUsersPage(); break;
     }
 }
 
@@ -147,7 +153,7 @@ async function loadDates() {
     try {
         const dates = await fetchJSON(`${API}/import/dates`);
         const sel = document.getElementById('dateSelect');
-        sel.innerHTML = '<option value="">Latest</option>';
+        sel.innerHTML = '<option value="">Latest</option><option value="All">All History</option>';
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.ImportDate;
@@ -907,7 +913,7 @@ async function runSuperTrendScan() {
         }
 
         tbody.innerHTML = data.map((s, i) => {
-            const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+            const bDate = s.BreakoutDate ? new Date(s.BreakoutDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
             return `
             <tr>
                 <td class="symbol-cell">
@@ -915,11 +921,109 @@ async function runSuperTrendScan() {
                     <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
                 </td>
                 <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                <td style="font-weight: 500;">📅 ${bDate}</td>
                 <td class="gain">₹${fmtNum(s.LTP)}</td>
-                <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
-                <td>${fmtNum(s.Volume)}</td>
-                <td>${fmtNum(s.Value)}</td>
-                <td class="gain" style="font-weight: 500;">📅 ${bDate}</td>
+                <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(s.LTP)}</td>
+                <td><span class="pct-badge pct-zero">0.00%</span></td>
+                <td style="color: var(--text-muted); font-size: 0.8rem;">SuperTrend</td>
+                <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        console.error(e);
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error running scan: ${e.message}</td></tr>`;
+    }
+}
+
+// ===== VOLUME BREAKOUT SCANNER =====
+async function runVolumeBreakoutScan() {
+    const btn = document.getElementById('btnRunVolBreakout');
+    const loading = document.getElementById('volScanLoading');
+    const tbody = document.getElementById('volBreakoutTableBody');
+    
+    btn.disabled = true;
+    btn.innerHTML = 'Scanning...';
+    loading.style.display = 'block';
+    tbody.innerHTML = '';
+
+    try {
+        const data = await fetchJSON(`${API}/scanner/volume-breakout`);
+        
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8">${noDataHtml('No volume breakouts found today.')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((s, i) => {
+            const bDate = new Date().toLocaleDateString('en-IN');
+            return `
+            <tr>
+                <td class="symbol-cell">
+                    <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                    <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                </td>
+                <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                <td style="font-weight: 500;">📅 ${bDate}</td>
+                <td class="gain">₹${fmtNum(s.LTP)}</td>
+                <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(s.LTP)}</td>
+                <td><span class="pct-badge pct-zero">0.00%</span></td>
+                <td style="color: var(--text-muted); font-size: 0.8rem; font-weight:600;">${s.VolRatio}x Vol (Avg: ${fmtNum(s.AvgVolume20D)})</td>
+                <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        console.error(e);
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error running scan: ${e.message}</td></tr>`;
+    }
+}
+
+// ===== CONSOLIDATION / RANGE BREAKOUT SCANNER =====
+async function runRangeBreakoutScan() {
+    const btn = document.getElementById('btnRunRangeBreakout');
+    const loading = document.getElementById('rangeScanLoading');
+    const tbody = document.getElementById('rangeBreakoutTableBody');
+    
+    btn.disabled = true;
+    btn.innerHTML = 'Scanning...';
+    loading.style.display = 'block';
+    tbody.innerHTML = '';
+
+    try {
+        const data = await fetchJSON(`${API}/scanner/range-breakout`);
+        
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8">${noDataHtml('No consolidation range breakouts found today.')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((s, i) => {
+            const bDate = new Date().toLocaleDateString('en-IN');
+            return `
+            <tr>
+                <td class="symbol-cell">
+                    <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                    <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                </td>
+                <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                <td style="font-weight: 500;">📅 ${bDate}</td>
+                <td class="gain">₹${fmtNum(s.LTP)}</td>
+                <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(s.LTP)}</td>
+                <td><span class="pct-badge pct-zero">0.00%</span></td>
+                <td style="color: var(--text-muted); font-size: 0.8rem;">Range: ${s.ConsolidationRangePct}%, VolRatio: ${s.VolRatio}x</td>
                 <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
             </tr>`;
         }).join('');
@@ -1207,11 +1311,21 @@ async function importCSVFile(file) {
     const formData = new FormData();
     formData.append('csvFile', file);
 
+    const headers = {};
+    if (typeof authHeaders === 'function') {
+        const authH = authHeaders();
+        if (authH.Authorization) headers.Authorization = authH.Authorization;
+    }
+
     try {
         fill.style.width = '60%';
         text.textContent = 'Importing to SQL Server...';
 
-        const res = await fetch(`${API}/import/csv`, { method: 'POST', body: formData });
+        const res = await fetch(`${API}/import/csv`, {
+            method: 'POST',
+            headers,
+            body: formData
+        });
         const data = await res.json();
 
         fill.style.width = '100%';
@@ -1273,7 +1387,10 @@ async function autoFetchData() {
     if(btn) btn.innerHTML = '<div class="loading-pulse" style="display:inline-block;">⚡ Fetching Live Data... (Takes ~1 min)</div>';
     
     try {
-        const res = await fetch(`${API}/import/auto-fetch`, { method: 'POST' });
+        const res = await fetch(`${API}/import/auto-fetch`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : {}
+        });
         const data = await res.json();
         
         if (!res.ok) throw new Error(data.error || 'Failed to auto-fetch');
@@ -1302,7 +1419,8 @@ async function refreshData() {
 
 // ===== HELPERS =====
 async function fetchJSON(url) {
-    const res = await fetch(url);
+    const headers = typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' };
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
 }
@@ -2357,7 +2475,7 @@ async function submitBuyTrade() {
 
         const res = await fetch(`${API}/portfolio/buy`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
             body: JSON.stringify({ symbol, quantity: qty, buyPrice, buyDate, notes })
         });
         const data = await res.json();
@@ -2432,7 +2550,7 @@ async function submitSellTrade() {
 
         const res = await fetch(`${API}/portfolio/sell`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
             body: JSON.stringify({ symbol, quantity: qty, sellPrice, sellDate })
         });
         const data = await res.json();
@@ -2461,7 +2579,10 @@ async function submitSellTrade() {
 async function deleteHolding(id, symbol) {
     if (!confirm(`⚠️ "${symbol}" ko portfolio se delete karein?\n(Trade history remove nahi hogi)`)) return;
     try {
-        await fetch(`${API}/portfolio/${id}`, { method: 'DELETE' });
+        await fetch(`${API}/portfolio/${id}`, {
+            method: 'DELETE',
+            headers: typeof authHeaders === 'function' ? authHeaders() : {}
+        });
         loadPortfolioPage();
     } catch(e) { alert('Delete error: ' + e.message); }
 }
@@ -2505,6 +2626,200 @@ async function showTradeHistory() {
         document.body.appendChild(modal);
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     } catch(e) { alert('Error loading trades: ' + e.message); }
+}
+
+// ===== HISTORICAL BREAKOUT LOADERS =====
+async function loadSuperTrendHistory() {
+    const date = document.getElementById('dateSelect').value;
+    const tbody = document.getElementById('supertrendTableBody');
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-row">Checking history...</td></tr>`;
+    try {
+        const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=SuperTrend`);
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map((s, i) => {
+                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bPrice = parseFloat(s.BreakoutPrice) || 0;
+                const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
+                const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
+                
+                return `
+                <tr>
+                    <td class="symbol-cell">
+                        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                    </td>
+                    <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                    <td style="font-weight: 500;">📅 ${bDate}</td>
+                    <td class="gain">₹${fmtNum(bPrice)}</td>
+                    <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(cPrice)}</td>
+                    <td><span class="pct-badge ${pctClass(movPct)}">${signedPct(movPct)}</span></td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">SuperTrend</td>
+                    <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                No saved breakouts for this date. Click 'Run Live Scan' to scan and save results.
+            </td></tr>`;
+        }
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadVolumeBreakoutHistory() {
+    const date = document.getElementById('dateSelect').value;
+    const tbody = document.getElementById('volBreakoutTableBody');
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-row">Checking history...</td></tr>`;
+    try {
+        const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=VolumeBreakout`);
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map((s, i) => {
+                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bPrice = parseFloat(s.BreakoutPrice) || 0;
+                const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
+                const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
+                const metrics = s.Metrics || '';
+                
+                return `
+                <tr>
+                    <td class="symbol-cell">
+                        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                    </td>
+                    <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                    <td style="font-weight: 500;">📅 ${bDate}</td>
+                    <td class="gain">₹${fmtNum(bPrice)}</td>
+                    <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(cPrice)}</td>
+                    <td><span class="pct-badge ${pctClass(movPct)}">${signedPct(movPct)}</span></td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem; font-weight:600;">${metrics}</td>
+                    <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                No saved breakouts for this date. Click 'Run Live Scan' to scan and save results.
+            </td></tr>`;
+        }
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadRangeBreakoutHistory() {
+    const date = document.getElementById('dateSelect').value;
+    const tbody = document.getElementById('rangeBreakoutTableBody');
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-row">Checking history...</td></tr>`;
+    try {
+        const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=RangeBreakout`);
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map((s, i) => {
+                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bPrice = parseFloat(s.BreakoutPrice) || 0;
+                const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
+                const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
+                const metrics = s.Metrics || '';
+                const parts = metrics.split(',');
+                const rangePct = parts[0] ? parts[0].replace('Range:', '').trim() : '--';
+                const volRatio = parts[1] ? parts[1].replace('VolRatio:', '').trim() : '--';
+                
+                return `
+                <tr>
+                    <td class="symbol-cell">
+                        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                    </td>
+                    <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                    <td style="font-weight: 500;">📅 ${bDate}</td>
+                    <td class="gain">₹${fmtNum(bPrice)}</td>
+                    <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(cPrice)}</td>
+                    <td><span class="pct-badge ${pctClass(movPct)}">${signedPct(movPct)}</span></td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">Range: ${rangePct}, VolRatio: ${volRatio}</td>
+                    <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                No saved breakouts for this date. Click 'Run Live Scan' to scan and save results.
+            </td></tr>`;
+        }
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
+    }
+}
+
+// ── Manage Users Page Logic ────────────────────────────────────
+async function loadManageUsersPage() {
+    const tbody = document.getElementById('tbody-users');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" class="loading-row">Loading registered users...</td></tr>`;
+    try {
+        const users = await fetchJSON(`${API}/auth/users`);
+        if (users && users.length > 0) {
+            const currentUser = getAuthUser();
+            tbody.innerHTML = users.map(u => {
+                const regDate = u.CreatedAt ? new Date(u.CreatedAt).toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : 'N/A';
+                
+                const isSelf = currentUser && (currentUser.username === u.Username);
+                const dropdownHtml = isSelf 
+                    ? `<span style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">You (Cannot change self)</span>`
+                    : `<select class="date-select" style="padding: 4px 8px; font-size: 0.8rem;" onchange="updateUserRole(${u.Id}, '${u.Username}', this.value)">
+                           <option value="user" ${u.Role === 'user' ? 'selected' : ''}>User (Normal Access)</option>
+                           <option value="admin" ${u.Role === 'admin' ? 'selected' : ''}>Admin (All Access)</option>
+                       </select>`;
+
+                return `<tr>
+                    <td style="font-weight:600; color:var(--text-primary);">${escapeHtml(u.Username)}</td>
+                    <td style="color:var(--text-secondary);">${escapeHtml(u.Email)}</td>
+                    <td>
+                        <span class="pct-badge ${u.Role === 'admin' ? 'gain' : 'neutral'}" style="text-transform:uppercase; font-size:0.75rem;">
+                            ${u.Role}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted); font-size:0.8rem;">${regDate}</td>
+                    <td>${dropdownHtml}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">No users found.</td></tr>`;
+        }
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="loading-row" style="color:#ef4444">Error loading users: ${e.message}</td></tr>`;
+    }
+}
+
+async function updateUserRole(userId, username, newRole) {
+    if (!confirm(`⚠️ User "${username}" ka role change karke "${newRole.toUpperCase()}" karein?`)) {
+        loadManageUsersPage(); // Reset dropdown state to original
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API}/auth/users/update-role`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, role: newRole })
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update failed');
+        
+        alert(`✅ Success: User "${username}" is now ${newRole.toUpperCase()}!`);
+        loadManageUsersPage();
+    } catch(e) {
+        alert('Role update error: ' + e.message);
+        loadManageUsersPage();
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // Start live ticking clocks every second

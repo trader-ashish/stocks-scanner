@@ -38,6 +38,24 @@ function updateAuthUI() {
             sidebarNav.style.opacity = '1';
         }
 
+        // Live Sync Admin visibility
+        const liveSyncWrap = document.getElementById('liveSyncWrap');
+        if (liveSyncWrap) {
+            liveSyncWrap.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
+        }
+
+        // Manage Users sidebar nav visibility
+        const navUsers = document.getElementById('nav-manage-users');
+        if (navUsers) {
+            navUsers.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
+        }
+
+        // Import Data sidebar nav visibility (Admin only)
+        const navImport = document.getElementById('nav-import');
+        if (navImport) {
+            navImport.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
+        }
+
         closeAuthModal();
     } else {
         // ── LOGGED OUT ──
@@ -48,6 +66,24 @@ function updateAuthUI() {
         document.querySelectorAll('.auth-required').forEach(el => {
             el.style.display = 'none';
         });
+
+        // Hide Live Sync for logged out users
+        const liveSyncWrap = document.getElementById('liveSyncWrap');
+        if (liveSyncWrap) {
+            liveSyncWrap.style.display = 'none';
+        }
+
+        // Hide Manage Users sidebar nav for logged out users
+        const navUsers = document.getElementById('nav-manage-users');
+        if (navUsers) {
+            navUsers.style.display = 'none';
+        }
+
+        // Hide Import Data sidebar nav for logged out users
+        const navImport = document.getElementById('nav-import');
+        if (navImport) {
+            navImport.style.display = 'none';
+        }
 
         // Lock main content access and blur it
         if (mainContent) {
