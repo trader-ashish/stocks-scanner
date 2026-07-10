@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ashish Mishra | Ashish Trader</title>
+    <meta name="description" content="Ashish Trader offers professional trading dashboards, custom indicators, AI market tools, and resources for intraday & swing trading.">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-primary: #060814;
+            --bg-secondary: #0c0e20;
+            --bg-card: rgba(13, 17, 32, 0.65);
+            --bg-glass: rgba(13, 17, 32, 0.8);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-1: #3b82f6;
+            --accent-2: #10b981;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #10b981);
+            --accent-glow: 0 0 25px rgba(59, 130, 246, 0.35);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --glass-blur: blur(20px);
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.7);
+            --bg-glass: rgba(255, 255, 255, 0.85);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --accent-1: #2563eb;
+            --accent-2: #059669;
+            --accent-gradient: linear-gradient(135deg, #2563eb, #059669);
+            --accent-glow: 0 4px 20px rgba(37, 99, 235, 0.15);
+            --border-color: rgba(37, 99, 235, 0.12);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+            transition: background 0.4s ease, color 0.4s ease;
+        }
+
+        /* Animated Glowing Blobs in Background */
+        .bg-blobs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            animation: float 12s infinite alternate;
+        }
+
+        .blob-1 {
+            background: var(--accent-1);
+            top: -50px;
+            left: -50px;
+        }
+
+        .blob-2 {
+            background: var(--accent-2);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: 3s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 30px) scale(1.1); }
+        }
+
+        /* Container Layout */
+        .wrapper {
+            width: 100%;
+            max-width: 480px;
+            background: var(--bg-glass);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 30px 24px;
+            box-shadow: var(--shadow);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header Options (Theme Toggle) */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .action-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .action-btn:hover {
+            color: var(--accent-1);
+            border-color: var(--accent-1);
+            transform: scale(1.05);
+        }
+
+        /* Profile Block */
+        .profile {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 16px;
+        }
+
+        .avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            transition: var(--transition);
+        }
+
+        .avatar-container:hover .avatar {
+            border-color: var(--accent-2);
+            transform: scale(1.03);
+        }
+
+        .status-badge {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 3px 8px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--accent-2);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-2);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .tagline {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .badge-pro {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-1);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 3px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            margin-top: 4px;
+        }
+
+        /* Social Icons Row */
+        .socials {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .social-link {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+
+        .social-link:hover {
+            color: #fff;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .social-link.wa:hover { background: #25d366; border-color: #25d366; }
+        .social-link.tg:hover { background: #0088cc; border-color: #0088cc; }
+        .social-link.li:hover { background: #0077b5; border-color: #0077b5; }
+        .social-link.ig:hover { background: linear-gradient(45deg, #f09433, #dc2743, #bc1888); border-color: #dc2743; }
+        .social-link.tw:hover { background: #0f1419; border-color: #0f1419; }
+
+        /* General Section Layout */
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title i {
+            color: var(--accent-1);
+        }
+
+        /* Biolink Buttons list */
+        .link-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .biolink-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+            transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .biolink-btn:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-1);
+            background: rgba(59, 130, 246, 0.05);
+            box-shadow: var(--accent-glow);
+        }
+
+        .btn-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-left i {
+            font-size: 1.15rem;
+            color: var(--accent-1);
+            transition: var(--transition);
+        }
+
+        .biolink-btn:hover .btn-left i {
+            transform: scale(1.1);
+        }
+
+        .btn-arrow {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .biolink-btn:hover .btn-arrow {
+            transform: translateX(3px);
+            color: var(--accent-1);
+        }
+
+        /* Accordion / Foldable sections */
+        .accordion {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 12px;
+            transition: var(--transition);
+        }
+
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            cursor: pointer;
+            user-select: none;
+            transition: var(--transition);
+        }
+
+        .accordion-header:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .accordion-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 0.92rem;
+        }
+
+        .accordion-title i {
+            font-size: 1.15rem;
+            color: var(--accent-2);
+        }
+
+        .accordion-icon {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .accordion.open .accordion-body {
+            max-height: 1000px;
+            transition: max-height 0.3s cubic-bezier(0, 0, 1, 0);
+        }
+
+        .accordion.open .accordion-icon {
+            transform: rotate(90deg);
+        }
+
+        .accordion-content {
+            padding: 18px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Portfolio / Resume Tabs */
+        .tabs-nav {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 3px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: var(--transition);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-gradient);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        }
+
+        .tab-panel {
+            display: none;
+            animation: fadeInTab 0.3s ease;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeInTab {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .portfolio-bio {
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .skills-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .skill-tag {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .project-list {
+            list-style: none;
+        }
+
+        .project-list li {
+            font-size: 0.78rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            padding-bottom: 6px;
+        }
+
+        .project-list li:last-child {
+            border: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .project-list li i {
+            color: var(--accent-2);
+            font-size: 0.7rem;
+        }
+
+        /* Resource Links inside Accordions */
+        .resource-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .resource-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 10px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.8rem;
+            transition: var(--transition);
+        }
+
+        .resource-btn:hover {
+            border-color: var(--accent-2);
+            background: rgba(16, 185, 129, 0.05);
+            transform: translateX(2px);
+        }
+
+        .resource-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .resource-left i {
+            color: #ef4444;
+            font-size: 0.9rem;
+        }
+
+        /* Secure Credentials Box */
+        .secure-box {
+            text-align: center;
+        }
+
+        .secure-input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            outline: none;
+            transition: var(--transition);
+            text-align: center;
+        }
+
+        .secure-input:focus {
+            border-color: var(--accent-1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+
+        .secure-msg {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .btn-wa-req {
+            margin-top: 14px;
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(37, 211, 102, 0.3);
+            background: rgba(37, 211, 102, 0.1);
+            color: #25D366;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+
+        .btn-wa-req:hover {
+            background: #25D366;
+            color: #fff;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 25px;
+            text-align: center;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+        }
+
+        .footer a {
+            color: var(--accent-1);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- Main Biolink Card -->
+    <div class="wrapper">
+        
+        <!-- Header Actions -->
+        <div class="header-actions">
+            <div></div> <!-- Spacer -->
+            <button class="action-btn" id="btnThemeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                <i class="fas fa-sun"></i>
+            </button>
+        </div>
+
+        <!-- Profile Header -->
+        <div class="profile">
+            <div class="avatar-container">
+                <img class="avatar" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhzu9QpCyrCUEOk9SsZOptubb8fjaL6LuXT0Ou6sCmbWyPzEXXP750EJ84nfnGCzu7r7PUgP_N1LnLYwdVkJ1B63ck7Hex4wvPCdn5Lk8PSqXsennDtHP98Rntn2samhy95R9la6D_EfN0OsHsO9UAq6-zUINRT5uNzWRRO1QJqZ0OoCgw/s1600/Mypic.PNG" alt="Ashish Mishra">
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    Active
+                </div>
+            </div>
+            <h1 class="name">Ashish Mishra</h1>
+            <p class="tagline">Full-Stack Developer | Trader | Pine Script Expert</p>
+            <span class="badge-pro">Building Smart Apps & Automation</span>
+        </div>
+
+        <!-- Social Icons Connect Row -->
+        <div class="socials">
+            <a href="https://wa.me/919713466747" target="_blank" class="social-link wa" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+            <a href="https://t.me/ashishmishraahc1" target="_blank" class="social-link tg" title="Telegram"><i class="fab fa-telegram-plane"></i></a>
+            <a href="https://www.linkedin.com/in/ashishmishraahc" target="_blank" class="social-link li" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+            <a href="https://instagram.com/ashishmishraahc" target="_blank" class="social-link ig" title="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="https://twitter.com/ashishmishraahc" target="_blank" class="social-link tw" title="Twitter (X)"><i class="fab fa-x-twitter"></i></a>
+        </div>
+
+        <!-- Custom Trading Scanners & Tools -->
+        <div class="section-title">
+            <i class="fas fa-chart-line"></i> Trading Dashboards & Scanners
+        </div>
+        <div class="link-list">
+            <a href="https://traderashish.blogspot.com/p/traders-dashboard.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-desktop"></i>
+                    <span>Trader's Dashboard</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://traderashish.blogspot.com/p/nifty-500-sector-scanner.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-cube"></i>
+                    <span>Nifty 500 Scanner</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://traderashish.blogspot.com/p/option-chain-analyzer.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Option Chain Analyzer</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://traderashish.blogspot.com/p/pro-swing-scanner.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-bolt"></i>
+                    <span>PRO F&O Scanner</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://traderashish.blogspot.com/p/pro-swing-scanner-cash.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>PRO Swing Scanner</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://papertradingfree.netlify.app/" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-laptop-code"></i>
+                    <span>Paper Trading App</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+            <a href="https://traderashish.blogspot.com/p/pine-script-lab.html" target="_blank" class="biolink-btn">
+                <div class="btn-left">
+                    <i class="fas fa-code"></i>
+                    <span>Pine Script Lab</span>
+                </div>
+                <i class="fas fa-chevron-right btn-arrow"></i>
+            </a>
+        </div>
+
+        <!-- Folding Trading Resources Accordion -->
+        <div class="section-title">
+            <i class="fas fa-folder-open"></i> Premium Resources
+        </div>
+
+        <div class="accordion">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                <div class="accordion-title">
+                    <i class="fas fa-download"></i>
+                    <span>Trading E-Books & Guides</span>
+                </div>
+                <i class="fas fa-chevron-right accordion-icon"></i>
+            </div>
+            <div class="accordion-body">
+                <div class="accordion-content">
+                    <div class="resource-links">
+                        <a href="https://drive.google.com/file/d/1ryJnNRQIkwJzWxlEs8e7weBcoBpQas9n/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Stock Market Roadmap</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1FqxECvygE-KguMue5oU0IRueDlXS5C9c/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Option Buying Guide</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1EGixiTIWWfh-0oOi9bsjpyBO351HZ04r/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Option Selling Guide</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1N3GnUF4Dc7fjrzjFD4TJq9QgmTvfKCE7/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Nifty Strategies</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1JFpdwjNR92FPvRosv46NbzhjVdH7nfp5/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Selling Strategies</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1qYzab9nrJLv9i6AJcT4jU43xt-fpFJF1/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>DELTA Option Guide</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1l5bRvGBLt10x8O8vmW68Cuum2h26evtw/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Option Greeks Guide</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <a href="https://drive.google.com/file/d/1kqBIJjYvcF5wSWRkmmv6L6IwZytxiduE/view?usp=drive_link" target="_blank" class="resource-btn">
+                            <div class="resource-left">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Sector Weightage Info</span>
+                            </div>
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Portfolio Resume Accordion -->
+        <div class="accordion">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                <div class="accordion-title">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Developer Portfolio</span>
+                </div>
+                <i class="fas fa-chevron-right accordion-icon"></i>
+            </div>
+            <div class="accordion-body">
+                <div class="accordion-content">
+                    
+                    <!-- Tabs -->
+                    <div class="tabs-nav">
+                        <button class="tab-btn active" onclick="switchTab(this, 'tab-about')">About</button>
+                        <button class="tab-btn" onclick="switchTab(this, 'tab-skills')">Skills</button>
+                        <button class="tab-btn" onclick="switchTab(this, 'tab-projects')">Projects</button>
+                    </div>
+
+                    <!-- Panel About -->
+                    <div class="tab-panel active" id="tab-about">
+                        <p class="portfolio-bio">Ex-IT Professional turned Entrepreneur & Full-Stack Developer.</p>
+                        <p class="portfolio-bio" style="margin-top: 8px;">Specialized in Trading Automation, Pine Script Development, Android Applications, Web Development, and Business Management Software.</p>
+                    </div>
+
+                    <!-- Panel Skills -->
+                    <div class="tab-panel" id="tab-skills">
+                        <div class="skills-grid">
+                            <span class="skill-tag">Pine Script (v5)</span>
+                            <span class="skill-tag">Trading Automation</span>
+                            <span class="skill-tag">Android App Dev</span>
+                            <span class="skill-tag">Firebase & SQL</span>
+                            <span class="skill-tag">Website Development</span>
+                            <span class="skill-tag">AI Integrations</span>
+                            <span class="skill-tag">UI/UX Design</span>
+                            <span class="skill-tag">REST APIs</span>
+                        </div>
+                    </div>
+
+                    <!-- Panel Projects -->
+                    <div class="tab-panel" id="tab-projects">
+                        <ul class="project-list">
+                            <li><i class="fas fa-graduation-cap"></i> School Management System</li>
+                            <li><i class="fas fa-users"></i> Smart Committee Manager</li>
+                            <li><i class="fas fa-wallet"></i> Expense Tracker App</li>
+                            <li><i class="fas fa-chart-line"></i> Automated Trading Dashboards</li>
+                            <li><i class="fas fa-cogs"></i> Corporate Reporting Utilities</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Secure Credentials Box Accordion -->
+        <div class="accordion">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                <div class="accordion-title">
+                    <i class="fas fa-lock" style="color: #feca57;"></i>
+                    <span>Secure File Access</span>
+                </div>
+                <i class="fas fa-chevron-right accordion-icon"></i>
+            </div>
+            <div class="accordion-body">
+                <div class="accordion-content">
+                    <div class="secure-box">
+                        <p style="margin-bottom: 12px; font-size: 0.78rem;">Enter credentials to unlock and download premium files:</p>
+                        <input type="text" id="secureUserId" class="secure-input" placeholder="User ID">
+                        <input type="password" id="securePassword" class="secure-input" placeholder="Password">
+                        
+                        <button class="btn-submit" onclick="checkSecureCredentials()">
+                            <i class="fas fa-unlock-alt"></i>
+                            <span>Unlock & Download</span>
+                        </button>
+                        
+                        <div id="secureStatus" class="secure-msg"></div>
+
+                        <a href="https://wa.me/919713466747?text=Bhai%20Secure%20File%20Access%20ki%20details%20chahiye" target="_blank" class="btn-wa-req">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>Request Access Details</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>&copy; 2026 Ashish Trader. All Rights Reserved.</p>
+            <p>Designed by <a href="https://www.ashishtrader.co.in" target="_blank">Ashish Mishra</a></p>
+        </div>
+
+    </div>
+
+    <!-- Interactive JS Scripts -->
+    <script>
+        // Toggle Dark/Light Theme
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const targetTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', targetTheme);
+            
+            const icon = document.getElementById('btnThemeToggle').querySelector('i');
+            if (targetTheme === 'light') {
+                icon.className = 'fas fa-moon';
+                localStorage.setItem('theme', 'light');
+            } else {
+                icon.className = 'fas fa-sun';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Initialize theme based on preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('btnThemeToggle').querySelector('i');
+            icon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+
+        // Toggle Accordion Layouts
+        function toggleAccordion(element) {
+            const accordion = element.parentElement;
+            const isOpen = accordion.classList.contains('open');
+            
+            // Close all accordions first
+            document.querySelectorAll('.accordion').forEach(acc => {
+                acc.classList.remove('open');
+            });
+            
+            // Open clicked if it was closed
+            if (!isOpen) {
+                accordion.classList.add('open');
+            }
+        }
+
+        // Switch Resume Portfolio Tabs
+        function switchTab(btn, panelId) {
+            const accordionContent = btn.closest('.accordion-content');
+            
+            // Toggle active buttons
+            accordionContent.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            
+            // Toggle panels
+            accordionContent.querySelectorAll('.tab-panel').forEach(p => {
+                p.classList.remove('active');
+            });
+            accordionContent.querySelector('#' + panelId).classList.add('active');
+        }
+
+        // Secure file access credentials verification simulation
+        function checkSecureCredentials() {
+            const uId = document.getElementById('secureUserId').value.trim();
+            const pass = document.getElementById('securePassword').value.trim();
+            const status = document.getElementById('secureStatus');
+
+            if (!uId || !pass) {
+                status.style.color = '#ff6b6b';
+                status.innerText = "⚠️ Please enter both fields.";
+                status.style.display = "block";
+                return;
+            }
+
+            // Mock credentials validation check
+            if (uId.toLowerCase() === 'ashish' && pass === 'trader747') {
+                status.style.color = '#10b981';
+                status.innerText = "✅ Credentials Verified! Unlocking file...";
+                status.style.display = "block";
+                
+                // Simulate downloading the locked roadmap PDF
+                setTimeout(() => {
+                    window.open('https://drive.google.com/file/d/1ryJnNRQIkwJzWxlEs8e7weBcoBpQas9n/view?usp=drive_link', '_blank');
+                }, 1000);
+            } else {
+                status.style.color = '#ff6b6b';
+                status.innerText = "❌ Incorrect User ID or Password. Try again.";
+                status.style.display = "block";
+            }
+        }
+    </script>
+</body>
+</html>
