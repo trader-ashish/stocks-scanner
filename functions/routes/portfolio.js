@@ -22,23 +22,24 @@ router.get('/', authMiddleware, async (req, res) => {
             stocksMap[s.Symbol] = s;
         });
 
-        // Get holdings filtered by current user
+        // Get holdings filtered by current user (Quantity filter done in-memory to avoid requiring Firestore composite indexes)
         const snapPortfolio = await db.collection('portfolio')
             .where('UserId', '==', req.user.id)
-            .where('Quantity', '>', 0)
             .get();
             
-        const holdings = snapPortfolio.docs.map(doc => {
-            const p = doc.data();
-            const s = stocksMap[p.Symbol] || {};
-            return {
-                Id: doc.id,
-                ...p,
-                LTP: s.LTP || 0,
-                DayPct: s.PctChange || 0,
-                SectorName: s.Sector || p.Sector || 'Others'
-            };
-        });
+        const holdings = snapPortfolio.docs
+            .map(doc => {
+                const p = doc.data();
+                const s = stocksMap[p.Symbol] || {};
+                return {
+                    Id: doc.id,
+                    ...p,
+                    LTP: s.LTP || 0,
+                    DayPct: s.PctChange || 0,
+                    SectorName: s.Sector || p.Sector || 'Others'
+                };
+            })
+            .filter(h => h.Quantity > 0);
 
         res.json(holdings);
     } catch(e) {
@@ -89,10 +90,9 @@ router.get('/summary', authMiddleware, async (req, res) => {
             stocksMap[s.Symbol] = s;
         });
 
-        // Sum holdings in memory for this user
+        // Sum holdings in memory for this user (Quantity filter done in-memory to avoid requiring Firestore composite indexes)
         const snapPortfolio = await db.collection('portfolio')
             .where('UserId', '==', req.user.id)
-            .where('Quantity', '>', 0)
             .get();
         
         let TotalInvested = 0;
@@ -102,6 +102,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
         snapPortfolio.docs.forEach(doc => {
             const p = doc.data();
+            if (!(p.Quantity > 0)) return;
             const s = stocksMap[p.Symbol] || {};
             const ltp = s.LTP || 0;
             const invested = p.Quantity * p.AvgBuyPrice;
@@ -113,10 +114,9 @@ router.get('/summary', authMiddleware, async (req, res) => {
             TotalHoldings++;
         });
 
-        // Sum realized P&L from sell trades for this user
+        // Sum realized P&L from sell trades for this user (TradeType filter done in-memory to avoid requiring Firestore composite indexes)
         const snapTrades = await db.collection('trades')
             .where('UserId', '==', req.user.id)
-            .where('TradeType', '==', 'SELL')
             .get();
             
         let RealizedPnL = 0;
@@ -124,6 +124,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
 
         snapTrades.docs.forEach(doc => {
             const t = doc.data();
+            if (t.TradeType !== 'SELL') return;
             RealizedPnL += (t.RealizedPnL || 0);
             TotalTrades++;
         });
