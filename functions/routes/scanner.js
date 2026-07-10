@@ -56,19 +56,21 @@ function calculateSuperTrend(quotes, period = 10, multiplier = 3) {
             trend[i] = trend[i - 1];
         }
     }
-    return trend;
+    return { trend, st };
 }
 
 // Helper: Save breakouts to Firestore
-async function saveBreakoutsToFirestore(breakouts, scanType) {
+async function saveBreakoutsToFirestore(breakouts, scanType, targetDate) {
     if (!breakouts || breakouts.length === 0) return;
     try {
-        // Resolve latest import date
-        const snapImports = await db.collection('imports').get();
-        if (snapImports.empty) return;
-        const ids = snapImports.docs.map(doc => doc.id);
-        ids.sort((a, b) => b.localeCompare(a));
-        const latestDate = ids[0];
+        let dateToUse = targetDate;
+        if (!dateToUse) {
+            const snapImports = await db.collection('imports').get();
+            if (snapImports.empty) return;
+            const ids = snapImports.docs.map(doc => doc.id);
+            ids.sort((a, b) => b.localeCompare(a));
+            dateToUse = ids[0];
+        }
         
         const batch = db.batch();
         for (const b of breakouts) {
@@ -79,13 +81,15 @@ async function saveBreakoutsToFirestore(breakouts, scanType) {
                 metrics = `Range: ${b.ConsolidationRangePct}%, VolRatio: ${b.VolRatio}x`;
             } else if (scanType === 'SuperTrend') {
                 metrics = 'SuperTrend Bullish Breakout';
+            } else if (scanType === 'SuperTrendPullback') {
+                metrics = `ST Support: ₹${b.SupportPrice || 0} (Dist: ${b.DistPct || 0}%)`;
             }
 
-            const docId = `${b.Symbol}_${latestDate}_${scanType}`;
+            const docId = `${b.Symbol}_${dateToUse}_${scanType}`;
             const docRef = db.collection('breakout_history').doc(docId);
             batch.set(docRef, {
                 Symbol: b.Symbol,
-                BreakoutDate: latestDate,
+                BreakoutDate: dateToUse,
                 ScanType: scanType,
                 LTP: b.LTP,
                 PctChange: b.PctChange,
@@ -95,7 +99,7 @@ async function saveBreakoutsToFirestore(breakouts, scanType) {
             }, { merge: true });
         }
         await batch.commit();
-        console.log(`Saved ${breakouts.length} breakouts of type ${scanType} for date ${latestDate} to Firestore`);
+        console.log(`Saved ${breakouts.length} breakouts of type ${scanType} for date ${dateToUse} to Firestore`);
     } catch(err) {
         console.error('Error saving breakouts to Firestore:', err.message);
     }
@@ -136,7 +140,7 @@ router.get('/supertrend', async (req, res) => {
                     if (quotes && quotes.quotes && quotes.quotes.length > 15) {
                         const validQuotes = quotes.quotes.filter(q => q.high !== null && q.low !== null && q.close !== null);
                         if (validQuotes.length > 10) {
-                            const trend = calculateSuperTrend(validQuotes, 10, 3);
+                            const { trend } = calculateSuperTrend(validQuotes, 10, 3);
                             if (trend.length >= 2) {
                                 const currentTrend = trend[trend.length - 1];
                                 const prevTrend = trend[trend.length - 2];
@@ -159,7 +163,7 @@ router.get('/supertrend', async (req, res) => {
         }
         
         breakouts.sort((a, b) => (b.PctChange || 0) - (a.PctChange || 0));
-        await saveBreakoutsToFirestore(breakouts, 'SuperTrend');
+        await saveBreakoutsToFirestore(breakouts, 'SuperTrend', latestDate);
         res.json(breakouts);
         
     } catch (err) {
@@ -329,7 +333,7 @@ router.get('/volume-breakout', async (req, res) => {
         }
 
         breakouts.sort((a, b) => b.VolRatio - a.VolRatio);
-        await saveBreakoutsToFirestore(breakouts, 'VolumeBreakout');
+        await saveBreakoutsToFirestore(breakouts, 'VolumeBreakout', latestDate);
         res.json(breakouts);
 
     } catch (err) {
@@ -419,7 +423,7 @@ router.get('/range-breakout', async (req, res) => {
         }
 
         breakouts.sort((a, b) => b.PctChange - a.PctChange);
-        await saveBreakoutsToFirestore(breakouts, 'RangeBreakout');
+        await saveBreakoutsToFirestore(breakouts, 'RangeBreakout', latestDate);
         res.json(breakouts);
 
     } catch (err) {
@@ -498,6 +502,101 @@ router.get('/history', async (req, res) => {
         res.json(historyList);
     } catch (err) {
         console.error('History fetch error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/scanner/supertrend-pullback
+router.get('/supertrend-pullback', async (req, res) => {
+    try {
+        let targetDate = req.query.date;
+        if (!targetDate || targetDate === 'Latest' || targetDate === 'undefined') {
+            const snapImports = await db.collection('imports').get();
+            if (snapImports.empty) return res.json([]);
+            const ids = snapImports.docs.map(doc => doc.id);
+            ids.sort((a, b) => b.localeCompare(a));
+            targetDate = ids[0];
+        }
+        const allStocks = await getStocksForDate(targetDate);
+
+        const stocks = allStocks.filter(s => (s.LTP || 0) > 20 && (s.Value || 0) > 5);
+        stocks.sort((a, b) => (b.Value || 0) - (a.Value || 0));
+
+        const pullbacks = [];
+        const date2 = new Date();
+        const date1 = new Date();
+        date1.setDate(date1.getDate() - 40); // 40 days of history to compute ST(10,3)
+        
+        const queryOptions = {
+            period1: date1.toISOString().split('T')[0],
+            period2: date2.toISOString().split('T')[0],
+            interval: '1d'
+        };
+
+        const chunkSize = 20;
+        for (let i = 0; i < stocks.length; i += chunkSize) {
+            const chunk = stocks.slice(i, i + chunkSize);
+            const promises = chunk.map(async (stock) => {
+                const symbol = stock.Symbol + '.NS';
+                try {
+                    const quotes = await yf.chart(symbol, queryOptions);
+                    if (quotes && quotes.quotes && quotes.quotes.length > 15) {
+                        const validQuotes = quotes.quotes.filter(q => q.high !== null && q.low !== null && q.close !== null);
+                        if (validQuotes.length > 12) {
+                            const { trend, st } = calculateSuperTrend(validQuotes, 10, 3);
+                            if (trend.length >= 3) {
+                                const lastIdx = trend.length - 1;
+                                // Must be in a Bullish Trend currently
+                                if (trend[lastIdx] === 1 && trend[lastIdx - 1] === 1) {
+                                    const todayLow = validQuotes[lastIdx].low;
+                                    const todayClose = validQuotes[lastIdx].close;
+                                    const todayOpen = validQuotes[lastIdx].open;
+                                    const todaySt = st[lastIdx];
+                                    
+                                    const prevLow = validQuotes[lastIdx - 1].low;
+                                    const prevSt = st[lastIdx - 1];
+                                    
+                                    const prevDist = (prevLow - prevSt) / prevSt;
+                                    const todayDist = (todayLow - todaySt) / todaySt;
+                                    
+                                    const isPrevCloseToST = prevDist >= 0 && prevDist <= 0.015;
+                                    const isTodayCloseToST = todayDist >= 0 && todayDist <= 0.015;
+                                    
+                                    if (isPrevCloseToST || isTodayCloseToST) {
+                                        // Confirm today is a green/bullish day (Close > Open or positive change)
+                                        const isBullishToday = todayClose > todayOpen || (stock.PctChange || 0) > 0;
+                                        if (isBullishToday) {
+                                            const distPct = isTodayCloseToST ? (todayDist * 100).toFixed(2) : (prevDist * 100).toFixed(2);
+                                            return {
+                                                ...stock,
+                                                BreakoutDate: targetDate,
+                                                DistPct: parseFloat(distPct),
+                                                SupportPrice: parseFloat((isTodayCloseToST ? todaySt : prevSt).toFixed(2))
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Ignore individual fetch errors
+                }
+                return null;
+            });
+            
+            const results = await Promise.all(promises);
+            for (const r of results) {
+                if (r) pullbacks.push(r);
+            }
+        }
+        
+        pullbacks.sort((a, b) => a.DistPct - b.DistPct); // Sort by proximity (closest first)
+        await saveBreakoutsToFirestore(pullbacks, 'SuperTrendPullback', targetDate);
+        res.json(pullbacks);
+        
+    } catch (err) {
+        console.error('SuperTrend Pullback Scanner error:', err);
         res.status(500).json({ error: err.message });
     }
 });

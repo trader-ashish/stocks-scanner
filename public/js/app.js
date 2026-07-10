@@ -123,6 +123,7 @@ async function navigateTo(page) {
         results:    ['Results Calendar', 'Upcoming & Past Quarterly Earnings'],
         indices:    ['Global & GIFT Nifty', 'Live International Markets & GIFT Nifty Ticker'],
         'manage-users': ['User Access Management', 'Control user access permissions and role elevations'],
+        'supertrend-pullback': ['SuperTrend Pullback', 'Daily SuperTrend Support Bounces'],
     };
     const [title, sub] = titles[page] || ['', ''];
     document.getElementById('pageTitle').textContent = title;
@@ -137,6 +138,7 @@ async function navigateTo(page) {
         case 'swing':      await loadSwingData(); break;
         case 'breakout':   await loadBreakoutData(); break;
         case 'supertrend': await loadSuperTrendHistory(); break;
+        case 'supertrend-pullback': await loadSuperTrendPullbackHistory(); break;
         case 'vol-breakout': await loadVolumeBreakoutHistory(); break;
         case 'range-breakout': await loadRangeBreakoutHistory(); break;
         case 'fundamentals': await loadFundamentalsTable(); break;
@@ -2750,6 +2752,107 @@ async function loadRangeBreakoutHistory() {
     } catch(e) {
         console.error(e);
         tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
+    }
+}
+
+// ===== SUPERTREND PULLBACK SCANNER =====
+async function runSTPullbackScan() {
+    const btn = document.getElementById('btnRunSTPullback');
+    const loading = document.getElementById('stPullbackScanLoading');
+    const tbody = document.getElementById('stPullbackTableBody');
+    
+    btn.disabled = true;
+    btn.innerHTML = 'Scanning...';
+    loading.style.display = 'block';
+    tbody.innerHTML = '';
+
+    try {
+        const data = await fetchJSON(`${API}/scanner/supertrend-pullback`);
+        
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9">${noDataHtml('No SuperTrend pullback candidates found today.')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((s, i) => {
+            const bDate = s.BreakoutDate ? new Date(s.BreakoutDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+            return `
+            <tr>
+                <td class="symbol-cell">
+                    <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                    <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                </td>
+                <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                <td style="font-weight: 500;">📅 ${bDate}</td>
+                <td style="color: var(--accent); font-weight: 600;">₹${fmtNum(s.SupportPrice)}</td>
+                <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(s.LTP)}</td>
+                <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
+                <td style="font-weight: 500; color: var(--text-muted);">${s.DistPct}%</td>
+                <td style="color: var(--text-muted); font-size: 0.8rem;">ST Support: ₹${fmtNum(s.SupportPrice)} (Dist: ${s.DistPct}%)</td>
+                <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        console.error(e);
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-row" style="color:#ef4444">Error running scan: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadSuperTrendPullbackHistory() {
+    const date = document.getElementById('dateSelect').value;
+    const tbody = document.getElementById('stPullbackTableBody');
+    tbody.innerHTML = `<tr><td colspan="9" class="loading-row">Checking history...</td></tr>`;
+    try {
+        const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=SuperTrendPullback`);
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map((s, i) => {
+                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bPrice = parseFloat(s.BreakoutPrice) || 0;
+                const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
+                const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
+                const metrics = s.Metrics || '';
+                
+                // Parse metrics to extract support price and proximity if available
+                let supportPrice = bPrice;
+                let proximity = '--';
+                if (metrics) {
+                    const matchSupp = metrics.match(/ST Support: ₹([\d\.]+)/);
+                    const matchDist = metrics.match(/Dist: ([\d\.]+)%/);
+                    if (matchSupp) supportPrice = parseFloat(matchSupp[1]);
+                    if (matchDist) proximity = matchDist[1] + '%';
+                }
+                
+                return `
+                <tr>
+                    <td class="symbol-cell">
+                        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                    </td>
+                    <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+                    <td style="font-weight: 500;">📅 ${bDate}</td>
+                    <td style="color: var(--accent); font-weight: 600;">₹${fmtNum(supportPrice)}</td>
+                    <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(cPrice)}</td>
+                    <td><span class="pct-badge ${pctClass(movPct)}">${signedPct(movPct)}</span></td>
+                    <td style="font-weight: 500; color: var(--text-muted);">${proximity}</td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">${metrics}</td>
+                    <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                No saved candidates for this date. Click 'Run Live Scan' to scan and save results.
+            </td></tr>`;
+        }
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
     }
 }
 

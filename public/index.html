@@ -54,6 +54,10 @@
                 <span class="nav-icon">🎯</span>
                 <span class="nav-label">SuperTrend Scans</span>
             </a>
+            <a href="#" class="nav-item" data-page="supertrend-pullback" id="nav-supertrend-pullback">
+                <span class="nav-icon">↩️</span>
+                <span class="nav-label">SuperTrend Pullback</span>
+            </a>
             <a href="#" class="nav-item" data-page="vol-breakout" id="nav-vol-breakout">
                 <span class="nav-icon">📈</span>
                 <span class="nav-label">Volume Breakout</span>
@@ -828,6 +832,52 @@
                     </thead>
                     <tbody id="breakoutTableBody">
                         <tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <!-- ======= SUPERTREND PULLBACK SCANS PAGE ======= -->
+        <div class="page" id="page-supertrend-pullback">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3);">↩️ SuperTrend Pullback Support</div>
+                    <p>Scanner that finds Nifty 500 stocks in daily bullish SuperTrend (10,3) that are pulling back to support and bouncing.</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" id="btnRunSTPullback" onclick="runSTPullbackScan()" style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 10px 20px;">
+                        ▶️ Run Live Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('stPullbackTableBody', 'SuperTrendPullbacks.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="stPullbackScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: var(--accent);">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Scanning 500 stocks on Yahoo Finance...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This usually takes 20-30 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="stPullbackTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>Date</th>
+                            <th>Support Price</th>
+                            <th>Current Price</th>
+                            <th>Movement %</th>
+                            <th>Proximity %</th>
+                            <th>Details</th>
+                            <th>Chart</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stPullbackTableBody">
+                        <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Live Scan' to find stocks at support.</td></tr>
                     </tbody>
                 </table>
             </div>
