@@ -2,7 +2,9 @@
 // app.js - Nifty 500 Stock Scanner Frontend Logic
 // ============================================================
 
-const API = 'http://localhost:3000/api';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? '/api'
+    : 'https://stocks-scanner.onrender.com/api';
 
 // ===== STATE =====
 let state = {

@@ -12,7 +12,7 @@ router.get('/', authMiddleware, async (req, res) => {
         let latestStocks = [];
         if (!snapImports.empty) {
             const ids = snapImports.docs.map(doc => doc.id);
-            ids.sort((a, b) => b.localeCompare(a.id));
+            ids.sort((a, b) => b.localeCompare(a));
             const latestDate = ids[0];
             latestStocks = await getStocksForDate(latestDate);
         }
@@ -79,7 +79,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         let latestStocks = [];
         if (!snapImports.empty) {
             const ids = snapImports.docs.map(doc => doc.id);
-            ids.sort((a, b) => b.localeCompare(a.id));
+            ids.sort((a, b) => b.localeCompare(a));
             const latestDate = ids[0];
             latestStocks = await getStocksForDate(latestDate);
         }

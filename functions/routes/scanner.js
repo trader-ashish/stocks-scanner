@@ -59,6 +59,48 @@ function calculateSuperTrend(quotes, period = 10, multiplier = 3) {
     return trend;
 }
 
+// Helper: Save breakouts to Firestore
+async function saveBreakoutsToFirestore(breakouts, scanType) {
+    if (!breakouts || breakouts.length === 0) return;
+    try {
+        // Resolve latest import date
+        const snapImports = await db.collection('imports').get();
+        if (snapImports.empty) return;
+        const ids = snapImports.docs.map(doc => doc.id);
+        ids.sort((a, b) => b.localeCompare(a));
+        const latestDate = ids[0];
+        
+        const batch = db.batch();
+        for (const b of breakouts) {
+            let metrics = '';
+            if (scanType === 'VolumeBreakout') {
+                metrics = `${b.VolRatio}x Volume, 20D Avg: ${Math.round(b.AvgVolume20D)}`;
+            } else if (scanType === 'RangeBreakout') {
+                metrics = `Range: ${b.ConsolidationRangePct}%, VolRatio: ${b.VolRatio}x`;
+            } else if (scanType === 'SuperTrend') {
+                metrics = 'SuperTrend Bullish Breakout';
+            }
+
+            const docId = `${b.Symbol}_${latestDate}_${scanType}`;
+            const docRef = db.collection('breakout_history').doc(docId);
+            batch.set(docRef, {
+                Symbol: b.Symbol,
+                BreakoutDate: latestDate,
+                ScanType: scanType,
+                LTP: b.LTP,
+                PctChange: b.PctChange,
+                Volume: b.Volume || b.TodayVolume || 0,
+                Metrics: metrics,
+                CreatedAt: new Date().toISOString()
+            }, { merge: true });
+        }
+        await batch.commit();
+        console.log(`Saved ${breakouts.length} breakouts of type ${scanType} for date ${latestDate} to Firestore`);
+    } catch(err) {
+        console.error('Error saving breakouts to Firestore:', err.message);
+    }
+}
+
 // GET /api/scanner/supertrend
 router.get('/supertrend', async (req, res) => {
     try {
@@ -66,7 +108,7 @@ router.get('/supertrend', async (req, res) => {
         const snapImports = await db.collection('imports').get();
         if (snapImports.empty) return res.json([]);
         const ids = snapImports.docs.map(doc => doc.id);
-        ids.sort((a, b) => b.localeCompare(a.id));
+        ids.sort((a, b) => b.localeCompare(a));
         const latestDate = ids[0];
         const allStocks = await getStocksForDate(latestDate);
 
@@ -117,6 +159,7 @@ router.get('/supertrend', async (req, res) => {
         }
         
         breakouts.sort((a, b) => (b.PctChange || 0) - (a.PctChange || 0));
+        await saveBreakoutsToFirestore(breakouts, 'SuperTrend');
         res.json(breakouts);
         
     } catch (err) {
@@ -131,7 +174,7 @@ router.get('/fundamentals', async (req, res) => {
         const snapImports = await db.collection('imports').get();
         if (snapImports.empty) return res.json([]);
         const ids = snapImports.docs.map(doc => doc.id);
-        ids.sort((a, b) => b.localeCompare(a.id));
+        ids.sort((a, b) => b.localeCompare(a));
         const latestDate = ids[0];
         const allStocks = await getStocksForDate(latestDate);
 
@@ -208,6 +251,253 @@ router.get('/fundamentals', async (req, res) => {
         
     } catch (err) {
         console.error('Fundamentals Scanner error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/scanner/volume-breakout
+router.get('/volume-breakout', async (req, res) => {
+    try {
+        const snapImports = await db.collection('imports').get();
+        if (snapImports.empty) return res.json([]);
+        const ids = snapImports.docs.map(doc => doc.id);
+        ids.sort((a, b) => b.localeCompare(a));
+        const latestDate = ids[0];
+        const allStocks = await getStocksForDate(latestDate);
+
+        const stocks = allStocks.filter(s => (s.LTP || 0) > 20 && (s.Value || 0) > 5);
+        stocks.sort((a, b) => (b.Value || 0) - (a.Value || 0));
+
+        const breakouts = [];
+        const date2 = new Date();
+        const date1 = new Date();
+        date1.setDate(date1.getDate() - 35); // Need ~25-30 days for 20 trading sessions
+
+        const queryOptions = {
+            period1: date1.toISOString().split('T')[0],
+            period2: date2.toISOString().split('T')[0],
+            interval: '1d'
+        };
+
+        const chunkSize = 20;
+        for (let i = 0; i < stocks.length; i += chunkSize) {
+            const chunk = stocks.slice(i, i + chunkSize);
+            const promises = chunk.map(async (stock) => {
+                const symbol = stock.Symbol + '.NS';
+                try {
+                    const quotes = await yf.chart(symbol, queryOptions);
+                    if (quotes && quotes.quotes && quotes.quotes.length > 15) {
+                        const validQuotes = quotes.quotes.filter(q => q.high !== null && q.low !== null && q.close !== null && q.volume !== null);
+                        if (validQuotes.length > 10) {
+                            const lastIdx = validQuotes.length - 1;
+                            const todayVol = validQuotes[lastIdx].volume;
+                            const todayClose = validQuotes[lastIdx].close;
+                            const prevClose = validQuotes[lastIdx - 1].close;
+                            const pctChg = ((todayClose - prevClose) / prevClose) * 100;
+
+                            let totalVol = 0;
+                            let count = 0;
+                            for (let j = lastIdx - 1; j >= Math.max(0, lastIdx - 20); j--) {
+                                totalVol += validQuotes[j].volume;
+                                count++;
+                            }
+                            const avgVol = totalVol / count;
+                            const volRatio = avgVol > 0 ? (todayVol / avgVol) : 0;
+
+                            if (volRatio >= 3.0 && pctChg >= 2.0) {
+                                return {
+                                    ...stock,
+                                    AvgVolume20D: Math.round(avgVol),
+                                    TodayVolume: todayVol,
+                                    VolRatio: parseFloat(volRatio.toFixed(2)),
+                                    PctChange: parseFloat(pctChg.toFixed(2)),
+                                    LTP: parseFloat(todayClose.toFixed(2))
+                                };
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Ignore error for single stock
+                }
+                return null;
+            });
+
+            const results = await Promise.all(promises);
+            for (const r of results) {
+                if (r) breakouts.push(r);
+            }
+        }
+
+        breakouts.sort((a, b) => b.VolRatio - a.VolRatio);
+        await saveBreakoutsToFirestore(breakouts, 'VolumeBreakout');
+        res.json(breakouts);
+
+    } catch (err) {
+        console.error('Volume Breakout Scanner error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/scanner/range-breakout
+router.get('/range-breakout', async (req, res) => {
+    try {
+        const snapImports = await db.collection('imports').get();
+        if (snapImports.empty) return res.json([]);
+        const ids = snapImports.docs.map(doc => doc.id);
+        ids.sort((a, b) => b.localeCompare(a));
+        const latestDate = ids[0];
+        const allStocks = await getStocksForDate(latestDate);
+
+        const stocks = allStocks.filter(s => (s.LTP || 0) > 20 && (s.Value || 0) > 5);
+        stocks.sort((a, b) => (b.Value || 0) - (a.Value || 0));
+
+        const breakouts = [];
+        const date2 = new Date();
+        const date1 = new Date();
+        date1.setDate(date1.getDate() - 35); // Need enough days for 10 sessions + today
+
+        const queryOptions = {
+            period1: date1.toISOString().split('T')[0],
+            period2: date2.toISOString().split('T')[0],
+            interval: '1d'
+        };
+
+        const chunkSize = 20;
+        for (let i = 0; i < stocks.length; i += chunkSize) {
+            const chunk = stocks.slice(i, i + chunkSize);
+            const promises = chunk.map(async (stock) => {
+                const symbol = stock.Symbol + '.NS';
+                try {
+                    const quotes = await yf.chart(symbol, queryOptions);
+                    if (quotes && quotes.quotes && quotes.quotes.length > 12) {
+                        const validQuotes = quotes.quotes.filter(q => q.high !== null && q.low !== null && q.close !== null && q.volume !== null);
+                        if (validQuotes.length >= 11) {
+                            const lastIdx = validQuotes.length - 1;
+                            const todayClose = validQuotes[lastIdx].close;
+                            const todayVol = validQuotes[lastIdx].volume;
+                            const prevClose = validQuotes[lastIdx - 1].close;
+                            const pctChg = ((todayClose - prevClose) / prevClose) * 100;
+
+                            const lookback = 10;
+                            const rangeStartIdx = lastIdx - lookback;
+                            let maxHigh = -Infinity;
+                            let minLow = Infinity;
+                            let totalVol = 0;
+
+                            for (let j = rangeStartIdx; j < lastIdx; j++) {
+                                if (validQuotes[j].high > maxHigh) maxHigh = validQuotes[j].high;
+                                if (validQuotes[j].low < minLow) minLow = validQuotes[j].low;
+                                totalVol += validQuotes[j].volume;
+                            }
+
+                            const avgVol = totalVol / lookback;
+                            const rangePct = ((maxHigh - minLow) / minLow) * 100;
+
+                            if (rangePct <= 6.0 && todayClose > maxHigh && todayVol > 1.3 * avgVol && pctChg > 0) {
+                                return {
+                                    ...stock,
+                                    ConsolidationRangePct: parseFloat(rangePct.toFixed(2)),
+                                    RangeHigh: parseFloat(maxHigh.toFixed(2)),
+                                    RangeLow: parseFloat(minLow.toFixed(2)),
+                                    VolRatio: parseFloat((todayVol / avgVol).toFixed(2)),
+                                    PctChange: parseFloat(pctChg.toFixed(2)),
+                                    LTP: parseFloat(todayClose.toFixed(2))
+                                };
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Ignore error
+                }
+                return null;
+            });
+
+            const results = await Promise.all(promises);
+            for (const r of results) {
+                if (r) breakouts.push(r);
+            }
+        }
+
+        breakouts.sort((a, b) => b.PctChange - a.PctChange);
+        await saveBreakoutsToFirestore(breakouts, 'RangeBreakout');
+        res.json(breakouts);
+
+    } catch (err) {
+        console.error('Range Breakout Scanner error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/scanner/history?date=...&type=...
+router.get('/history', async (req, res) => {
+    try {
+        const { date, type } = req.query;
+        if (!type) {
+            return res.status(400).json({ error: 'Type parameter required' });
+        }
+
+        // Fetch latest stocks for joining current price
+        const snapImports = await db.collection('imports').get();
+        let latestStocks = [];
+        if (!snapImports.empty) {
+            const ids = snapImports.docs.map(doc => doc.id);
+            ids.sort((a, b) => b.localeCompare(a));
+            const latestDate = ids[0];
+            latestStocks = await getStocksForDate(latestDate);
+        }
+        const stocksMap = {};
+        latestStocks.forEach(s => {
+            stocksMap[s.Symbol] = s;
+        });
+
+        // Query Firestore collection 'breakout_history'
+        const snapHistory = await db.collection('breakout_history').where('ScanType', '==', type).get();
+
+        let formattedDate = date;
+        if (date !== 'All') {
+            if (!formattedDate || formattedDate === 'Latest' || formattedDate === 'undefined' || formattedDate === '') {
+                const snapImports = await db.collection('imports').get();
+                if (!snapImports.empty) {
+                    const ids = snapImports.docs.map(doc => doc.id);
+                    ids.sort((a, b) => b.localeCompare(a));
+                    formattedDate = ids[0];
+                } else {
+                    formattedDate = new Date().toISOString().split('T')[0];
+                }
+            }
+        }
+
+        let historyList = snapHistory.docs.map(doc => {
+            const h = doc.data();
+            const curr = stocksMap[h.Symbol] || {};
+            return {
+                Symbol: h.Symbol,
+                BreakoutDate: h.BreakoutDate,
+                ScanType: h.ScanType,
+                BreakoutPrice: h.LTP,
+                BreakoutPctChange: h.PctChange,
+                BreakoutVolume: h.Volume,
+                Metrics: h.Metrics,
+                CurrentPrice: curr.LTP || h.LTP,
+                CurrentPctChange: curr.PctChange || 0,
+                Sector: curr.Sector || 'Others'
+            };
+        });
+
+        if (date !== 'All') {
+            historyList = historyList.filter(h => h.BreakoutDate === formattedDate);
+        }
+
+        // Sort in memory: BreakoutDate desc, BreakoutPctChange desc
+        historyList.sort((a, b) => {
+            const dateCmp = b.BreakoutDate.localeCompare(a.BreakoutDate);
+            if (dateCmp !== 0) return dateCmp;
+            return (b.BreakoutPctChange || 0) - (a.BreakoutPctChange || 0);
+        });
+
+        res.json(historyList);
+    } catch (err) {
+        console.error('History fetch error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

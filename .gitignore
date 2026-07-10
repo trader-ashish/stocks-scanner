@@ -3,3 +3,6 @@ node_modules/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+*adminsdk*.json
+serviceAccountKey.json
+functions/serviceAccountKey.json

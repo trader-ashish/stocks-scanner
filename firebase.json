@@ -17,6 +17,7 @@
     }
   ],
   "hosting": {
+    "site": "ashishmishra",
     "public": "public",
     "ignore": [
       "firebase.json",

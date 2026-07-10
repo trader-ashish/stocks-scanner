@@ -7,7 +7,7 @@ async function resolveDate(dateQuery) {
     const snap = await db.collection('imports').get();
     if (snap.empty) return new Date().toISOString().split('T')[0];
     const ids = snap.docs.map(doc => doc.id);
-    ids.sort((a, b) => b.localeCompare(a.id));
+    ids.sort((a, b) => b.localeCompare(a));
     return ids[0];
 }
 
