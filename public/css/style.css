@@ -437,8 +437,20 @@ input:checked + .slider:before { transform: translateX(20px); }
 .slider.round:before { border-radius: 50%; }
 
 /* ===== PAGES ===== */
-.page { display: none; padding: 24px 28px; }
-.page.active { display: block; }
+.page { 
+    display: none; 
+    padding: 24px 28px; 
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.22s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.page.active { 
+    display: block; 
+}
+.page.fade-in {
+    opacity: 1;
+    transform: translateY(0);
+}
 
 /* ===== SUMMARY CARDS ===== */
 .summary-cards {
@@ -2397,3 +2409,91 @@ select.form-input { cursor: pointer; }
     color: #3b82f6; /* Accent color for 'Ashish Mishra' */
     font-weight: 600;
 }
+
+/* ============================================================
+   PREMIUM INTERACTIVE VISUAL EFFECTS
+   ============================================================ */
+
+/* 1. Premium Card Hover Glow Effects & Easing */
+.db-kpi-card, .summary-card, .chart-card, .pf-card, .sector-card, .index-focus-card, .global-idx-card {
+    transition: transform 0.28s cubic-bezier(0.25, 0.8, 0.25, 1), 
+                box-shadow 0.28s cubic-bezier(0.25, 0.8, 0.25, 1), 
+                border-color 0.28s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.db-kpi-card:hover, .summary-card:hover, .chart-card:hover, .pf-card:hover, .sector-card:hover, .index-focus-card:hover, .global-idx-card:hover {
+    transform: translateY(-4px) !important;
+    border-color: rgba(59, 130, 246, 0.35) !important;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.12), 
+                0 8px 16px -6px rgba(59, 130, 246, 0.08) !important;
+}
+
+/* Green cards (Bullish/Gainers) */
+.db-kpi-green:hover, .summary-card.gainers:hover, .sector-card.gaining:hover {
+    border-color: rgba(34, 197, 94, 0.35) !important;
+    box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.12), 
+                0 8px 16px -6px rgba(34, 197, 94, 0.08) !important;
+}
+
+/* Red cards (Bearish/Losers) */
+.db-kpi-red:hover, .summary-card.losers:hover, .sector-card.losing:hover {
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.12), 
+                0 8px 16px -6px rgba(239, 68, 68, 0.08) !important;
+}
+
+/* 2. Rotating Spinner Upgrade for Loading Indicator */
+.loading-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.loading-pulse::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(148, 163, 184, 0.15);
+    border-top: 2px solid var(--accent);
+    border-radius: 50%;
+    animation: loadingSpin 0.7s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+@keyframes loadingSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 3. Cascading/Staggered Fade-in for Data Tables */
+.data-table tbody tr {
+    opacity: 0;
+    transform: translateY(6px);
+    animation: trFadeIn 0.32s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes trFadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.data-table tbody tr:nth-child(1) { animation-delay: 0.015s; }
+.data-table tbody tr:nth-child(2) { animation-delay: 0.030s; }
+.data-table tbody tr:nth-child(3) { animation-delay: 0.045s; }
+.data-table tbody tr:nth-child(4) { animation-delay: 0.060s; }
+.data-table tbody tr:nth-child(5) { animation-delay: 0.075s; }
+.data-table tbody tr:nth-child(6) { animation-delay: 0.090s; }
+.data-table tbody tr:nth-child(7) { animation-delay: 0.105s; }
+.data-table tbody tr:nth-child(8) { animation-delay: 0.120s; }
+.data-table tbody tr:nth-child(9) { animation-delay: 0.135s; }
+.data-table tbody tr:nth-child(10) { animation-delay: 0.150s; }
+.data-table tbody tr:nth-child(11) { animation-delay: 0.165s; }
+.data-table tbody tr:nth-child(12) { animation-delay: 0.180s; }
+.data-table tbody tr:nth-child(13) { animation-delay: 0.195s; }
+.data-table tbody tr:nth-child(14) { animation-delay: 0.210s; }
+.data-table tbody tr:nth-child(15) { animation-delay: 0.225s; }

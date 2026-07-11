@@ -40,7 +40,7 @@ function toggleTheme() {
         state.theme = 'dark';
     }
     // Re-render current page to update charts
-    navigate(state.currentPage);
+    navigateTo(state.currentPage);
 }
 
 // ===== INIT =====
@@ -52,6 +52,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkDBConnection();
     await loadDates();
     await loadDashboard();
+    
+    // Smoothly fade in the initial active dashboard page
+    const dashPage = document.getElementById('page-dashboard');
+    if (dashPage) {
+        dashPage.offsetHeight; // force reflow
+        dashPage.classList.add('fade-in');
+    }
 });
 
 // ===== CLOCK =====
@@ -98,9 +105,23 @@ async function navigateTo(page) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`nav-${page}`)?.classList.add('active');
 
-    // Update pages
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(`page-${page}`)?.classList.add('active');
+    // Update pages with smooth transition
+    const prevPageEl = document.querySelector('.page.active');
+    const nextPageEl = document.getElementById(`page-${page}`);
+
+    if (prevPageEl && prevPageEl !== nextPageEl) {
+        prevPageEl.classList.remove('fade-in');
+        // Wait for fade-out transition to complete (150ms is perfect for 0.22s transition curve)
+        await new Promise(resolve => setTimeout(resolve, 150));
+        prevPageEl.classList.remove('active');
+    }
+
+    if (nextPageEl) {
+        nextPageEl.classList.add('active');
+        // Force browser layout recalculation/reflow before adding animation class
+        nextPageEl.offsetHeight; 
+        nextPageEl.classList.add('fade-in');
+    }
 
     state.currentPage = page;
 
