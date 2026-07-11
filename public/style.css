@@ -273,6 +273,7 @@ body {
     flex-direction: column;
     min-height: 100vh;
     max-width: calc(100vw - var(--sidebar-w));
+    padding-bottom: 40px;
 }
 
 /* ===== TOPBAR ===== */
@@ -2275,4 +2276,27 @@ select.form-input { cursor: pointer; }
     .sector-left-panel .chart-container {
         height: 380px !important; /* Shorter chart when stacked */
     }
+}
+
+/* App Footer Styling */
+.app-footer {
+    text-align: center;
+    padding: 24px 16px;
+    margin-top: 40px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+}
+
+.app-footer p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.app-footer .footer-highlight {
+    color: #3b82f6; /* Accent color for 'Ashish Mishra' */
+    font-weight: 600;
 }
