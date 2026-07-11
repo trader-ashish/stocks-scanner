@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=10">
+    <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
     <!-- SIDEBAR -->
@@ -147,8 +147,13 @@
         <!-- TOP BAR -->
         <header class="topbar">
             <div class="topbar-left">
-                <h1 class="page-title" id="pageTitle">Dashboard</h1>
-                <span class="page-subtitle" id="pageSubtitle">NSE Nifty 500 Market Overview</span>
+                <button class="hamburger-menu" id="hamburgerMenu" onclick="toggleMobileSidebar()" style="display: none;">
+                    ☰
+                </button>
+                <div class="title-container">
+                    <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                    <span class="page-subtitle" id="pageSubtitle">NSE Nifty 500 Market Overview</span>
+                </div>
             </div>
             <div class="topbar-right">
                 <div class="date-selector-wrap">
@@ -1826,10 +1831,40 @@
         </div>
     </div>
 
+    <!-- SIDEBAR OVERLAY FOR MOBILE -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+
     <!-- TOAST NOTIFICATION -->
     <div class="toast" id="toast"></div>
 
     <script src="js/app.js?v=9"></script>
     <script src="js/auth_results.js"></script>
+    
+    <!-- MOBILE SIDEBAR TOGGLE SCRIPT -->
+    <script>
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar && overlay) {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar) {
+                sidebar.addEventListener('click', (e) => {
+                    const navItem = e.target.closest('.nav-item');
+                    if (navItem && window.innerWidth <= 768) {
+                        sidebar.classList.remove('open');
+                        if (overlay) overlay.classList.remove('active');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
