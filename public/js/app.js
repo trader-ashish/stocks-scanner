@@ -2,9 +2,10 @@
 // app.js - Nifty 500 Stock Scanner Frontend Logic
 // ============================================================
 
-const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+window.API = window.API || ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? '/api'
-    : 'https://stocks-scanner.onrender.com/api';
+    : 'https://stocks-scanner.onrender.com/api');
+var API = window.API;
 
 // ===== STATE =====
 let state = {
@@ -49,15 +50,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     initClock();
     initNavigation();
     initDragDrop();
-    await checkDBConnection();
-    await loadDates();
-    await loadDashboard();
     
-    // Smoothly fade in the initial active dashboard page
-    const dashPage = document.getElementById('page-dashboard');
-    if (dashPage) {
-        dashPage.offsetHeight; // force reflow
-        dashPage.classList.add('fade-in');
+    // Non-blocking DB check with auto-retry for Render cold-starts
+    checkDBConnection();
+
+    try {
+        await loadDates();
+        await loadDashboard();
+    } catch(e) {
+        console.error('Initial data load error:', e);
+    }
+    
+    // Ensure active page is visible
+    const activePage = document.querySelector('.page.active') || document.getElementById('page-dashboard');
+    if (activePage) {
+        activePage.classList.add('active');
+        activePage.offsetHeight;
+        activePage.classList.add('fade-in');
     }
 });
 
@@ -77,15 +86,28 @@ function initClock() {
 async function checkDBConnection() {
     const dot = document.querySelector('.status-dot');
     const label = document.querySelector('.db-status span');
+    if (!dot || !label) return;
+    
     try {
-        const res = await fetch(`${API}/health`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`${API}/health`, { signal: AbortSignal.timeout(45000) });
         if (res.ok) {
+            const wasWaking = label.textContent.includes('Waking') || label.textContent.includes('Connecting') || label.textContent.includes('Error');
             dot.className = 'status-dot connected';
             label.textContent = 'DB Connected';
+
+            // Auto-trigger data reload once server wakes up
+            if (wasWaking) {
+                console.log('Server woken up! Auto-loading page data...');
+                if (!state.currentDate) await loadDates();
+                if (state.currentPage === 'dashboard') loadDashboard();
+                else navigateTo(state.currentPage);
+            }
         } else throw new Error();
-    } catch {
+    } catch (e) {
         dot.className = 'status-dot error';
-        label.textContent = 'DB Error';
+        label.textContent = 'Waking Server...';
+        // Auto-retry every 3s until Render server finishes cold start
+        setTimeout(checkDBConnection, 3000);
     }
 }
 
@@ -523,21 +545,33 @@ async function loadTopMovers(date) {
         ]);
 
         document.getElementById('topGainersList').innerHTML = gainers.map((s, i) => `
-            <div class="mover-item">
-                <span class="mover-rank">${i+1}</span>
-                <span class="mover-symbol">${s.Symbol}</span>
-                <span class="mover-sector">${s.Sector || ''}</span>
-                <span class="mover-ltp">₹${fmtNum(s.LTP)}</span>
-                <span class="mover-change gain">+${s.PctChange?.toFixed(2)}%</span>
+            <div class="mover-card gainer-card" onclick="openStockModal('${s.Symbol}')" title="Click to view ${s.Symbol} details">
+                <div class="mover-left">
+                    <span class="mover-rank">#${i+1}</span>
+                    <div class="mover-details">
+                        <span class="mover-symbol">${s.Symbol}</span>
+                        <span class="mover-sector">${s.Sector || 'NSE Stock'}</span>
+                    </div>
+                </div>
+                <div class="mover-right">
+                    <span class="mover-ltp">₹${fmtNum(s.LTP)}</span>
+                    <span class="pct-badge gain">+${s.PctChange?.toFixed(2)}%</span>
+                </div>
             </div>`).join('');
 
         document.getElementById('topLosersList').innerHTML = losers.map((s, i) => `
-            <div class="mover-item">
-                <span class="mover-rank">${i+1}</span>
-                <span class="mover-symbol">${s.Symbol}</span>
-                <span class="mover-sector">${s.Sector || ''}</span>
-                <span class="mover-ltp">₹${fmtNum(s.LTP)}</span>
-                <span class="mover-change loss">${s.PctChange?.toFixed(2)}%</span>
+            <div class="mover-card loser-card" onclick="openStockModal('${s.Symbol}')" title="Click to view ${s.Symbol} details">
+                <div class="mover-left">
+                    <span class="mover-rank">#${i+1}</span>
+                    <div class="mover-details">
+                        <span class="mover-symbol">${s.Symbol}</span>
+                        <span class="mover-sector">${s.Sector || 'NSE Stock'}</span>
+                    </div>
+                </div>
+                <div class="mover-right">
+                    <span class="mover-ltp">₹${fmtNum(s.LTP)}</span>
+                    <span class="pct-badge loss">${s.PctChange?.toFixed(2)}%</span>
+                </div>
             </div>`).join('');
     } catch(e) { console.error('Movers error:', e); }
 }
@@ -651,46 +685,324 @@ function renderBreadthChart(gainers, losers, unchanged) {
 }
 
 // ===== INTRADAY =====
+let intradaySortCol = 'IntradayScore';
+let intradaySortAsc = false;
+
 async function loadIntradayData() {
     const date = state.currentDate;
-    const biasFilter = document.getElementById('intradayBiasFilter')?.value || 'all';
-    const sectorFilter = document.getElementById('intradaySectorFilter')?.value || '';
-
     document.getElementById('intradayTableBody').innerHTML =
         `<tr><td colspan="12" class="loading-row"><div class="loading-pulse">Analyzing intraday picks...</div></td></tr>`;
 
     try {
-        let data = await fetchJSON(`${API}/analysis/intraday${date ? `?date=${date}` : ''}`);
+        state.rawIntradayData = await fetchJSON(`${API}/analysis/intraday${date ? `?date=${date}` : ''}`);
+        // Populate sector filter once with ALL available sectors
+        await populateSectorFilter('intradaySectorFilter', state.rawIntradayData);
+        renderIntradayTable();
+    } catch(e) {
+        console.error(e);
+        document.getElementById('intradayTableBody').innerHTML =
+            `<tr><td colspan="12" class="loading-row" style="color:#ef4444">Error: ${e.message}</td></tr>`;
+    }
+}
 
-        // Populate sector filter
-        await populateSectorFilter('intradaySectorFilter', data);
+function renderIntradayTable() {
+    if (!state.rawIntradayData) return;
+    let data = [...state.rawIntradayData];
 
-        if (biasFilter !== 'all') data = data.filter(s => s.Bias === biasFilter);
-        if (sectorFilter) data = data.filter(s => s.Sector === sectorFilter);
+    const search = document.getElementById('intradaySearch')?.value.trim().toUpperCase() || '';
+    const biasFilter = document.getElementById('intradayBiasFilter')?.value || 'all';
+    const sectorFilter = document.getElementById('intradaySectorFilter')?.value || '';
+    const minVal = parseFloat(document.getElementById('intradayValueFilter')?.value) || 0;
+    const minMove = parseFloat(document.getElementById('intradayMoveFilter')?.value) || 0;
 
-        document.getElementById('badge-intraday').textContent = data.length;
+    // Apply Search Filter
+    if (search) {
+        data = data.filter(s => s.Symbol.includes(search) || (s.Sector && s.Sector.toUpperCase().includes(search)));
+    }
+    // Apply Bias Filter
+    if (biasFilter !== 'all') {
+        data = data.filter(s => s.Bias === biasFilter);
+    }
+    // Apply Sector Filter
+    if (sectorFilter) {
+        data = data.filter(s => s.Sector === sectorFilter);
+    }
+    // Apply Value (Turnover Cr) Filter
+    if (minVal > 0) {
+        data = data.filter(s => (s.Value || 0) >= minVal);
+    }
+    // Apply Move % Filter
+    if (minMove > 0) {
+        data = data.filter(s => Math.abs(s.PctChange || 0) >= minMove);
+    }
+
+    // Apply Sorting
+    data.sort((a, b) => {
+        let valA = a[intradaySortCol];
+        let valB = b[intradaySortCol];
+        if (typeof valA === 'string') {
+            return intradaySortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        valA = valA || 0;
+        valB = valB || 0;
+        return intradaySortAsc ? valA - valB : valB - valA;
+    });
+
+    document.getElementById('badge-intraday').textContent = data.length;
+
+    if (!data.length) {
+        document.getElementById('intradayTableBody').innerHTML =
+            `<tr><td colspan="13">${noDataHtml('No intraday picks found matching current filters.')}</td></tr>`;
+        return;
+    }
+
+    const maxScore = Math.max(...data.map(s => s.IntradayScore || 0), 1);
+
+    document.getElementById('intradayTableBody').innerHTML = data.map((s, i) => {
+        window.intradayStocksMap[s.Symbol] = s;
+        const entry = parseFloat(s.LTP) || 0;
+        const isBull = s.Bias === 'BULLISH';
+        const target1 = isBull ? entry * 1.015 : entry * 0.985;
+
+        return `
+    <tr>
+        <td class="neutral-val">${i+1}</td>
+        <td class="symbol-cell">
+            <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+            <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+        </td>
+        <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+        <td>₹${fmtNum(s.LTP)}</td>
+        <td>₹${fmtNum(s.Open)}</td>
+        <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
+        <td class="neutral-val">${fmtVol(s.Volume)}</td>
+        <td class="${s.Value >= 100 ? 'gain' : ''}">₹${fmtNum(s.Value)}</td>
+        <td class="neutral-val">₹${fmtNum(s.High52W)}</td>
+        <td class="${(s.PctFromHigh52W < 5) ? 'gain' : 'neutral-val'}">${fmtNum(s.PctFromHigh52W)}%</td>
+        <td><span class="bias-badge ${s.Bias === 'BULLISH' ? 'bullish' : 'bearish'}">${s.Bias === 'BULLISH' ? '🟢 Bull' : '🔴 Bear'}</span></td>
+        <td>
+            <div class="score-bar-wrap">
+                <span class="score-val">${Math.round(s.IntradayScore)}</span>
+                <div class="score-bar"><div class="score-fill" style="width:${(s.IntradayScore/maxScore*100).toFixed(0)}%"></div></div>
+            </div>
+        </td>
+        <td>
+            <button class="btn-sm" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.35); font-weight:700; padding:5px 12px; font-size:0.78rem; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(56,189,248,0.2);" onclick="openIntradayTradeModalBySymbol('${s.Symbol}')">
+                🎯 Setup (T: ₹${fmtNum(target1)})
+            </button>
+        </td>
+    </tr>`;
+    }).join('');
+}
+
+function sortIntraday(col) {
+    if (intradaySortCol === col) {
+        intradaySortAsc = !intradaySortAsc;
+    } else {
+        intradaySortCol = col;
+        intradaySortAsc = false;
+    }
+    renderIntradayTable();
+}
+
+// ── Intraday Trade Setup & Position Calculator ─────────────
+window.intradayStocksMap = window.intradayStocksMap || {};
+
+function openIntradayTradeModalBySymbol(symbol) {
+    const stock = window.intradayStocksMap[symbol];
+    if (stock) openIntradayTradeModal(stock);
+}
+
+let currentTradeStock = null;
+
+function openIntradayTradeModal(stock) {
+    currentTradeStock = stock;
+    const isBull = stock.Bias === 'BULLISH';
+    const entry = parseFloat(stock.LTP) || 0;
+    const target1 = isBull ? entry * 1.015 : entry * 0.985;
+    const target2 = isBull ? entry * 1.025 : entry * 0.975;
+    const sl = isBull ? entry * 0.9925 : entry * 1.0075;
+
+    document.getElementById('tradeModalStockName').textContent = stock.Symbol + ' (' + (stock.Sector || 'Others') + ')';
+    const biasEl = document.getElementById('tradeModalBias');
+    biasEl.textContent = isBull ? '🟢 BULLISH' : '🔴 BEARISH';
+    biasEl.className = `bias-badge ${isBull ? 'bullish' : 'bearish'}`;
+
+    document.getElementById('tradeModalEntry').textContent = '₹' + fmtNum(entry);
+    document.getElementById('tradeModalTarget').textContent = '₹' + fmtNum(target1);
+    document.getElementById('tradeModalTarget2').textContent = '₹' + fmtNum(target2);
+    document.getElementById('tradeModalSL').textContent = '₹' + fmtNum(sl);
+
+    calculatePositionSize();
+    document.getElementById('intradayTradeModal').style.display = 'flex';
+}
+
+function closeIntradayTradeModal() {
+    document.getElementById('intradayTradeModal').style.display = 'none';
+}
+
+function calculatePositionSize() {
+    if (!currentTradeStock) return;
+    const riskAmt = parseFloat(document.getElementById('calcRiskAmount').value) || 1000;
+    const entry = parseFloat(currentTradeStock.LTP) || 0;
+    const isBull = currentTradeStock.Bias === 'BULLISH';
+    const sl = isBull ? entry * 0.9925 : entry * 1.0075;
+    const target1 = isBull ? entry * 1.015 : entry * 0.985;
+
+    const riskPerShare = Math.abs(entry - sl);
+    if (riskPerShare <= 0) return;
+
+    const qty = Math.floor(riskAmt / riskPerShare);
+    const capitalNeeded = qty * entry;
+    const rewardPerShare = Math.abs(target1 - entry);
+    const potentialProfit = qty * rewardPerShare;
+
+    document.getElementById('calcQty').textContent = qty.toLocaleString('en-IN') + ' shares';
+    document.getElementById('calcCapital').textContent = '₹' + Math.round(capitalNeeded).toLocaleString('en-IN');
+    document.getElementById('calcProfit').textContent = '+₹' + Math.round(potentialProfit).toLocaleString('en-IN');
+}
+
+async function executeTradeToPortfolio() {
+    if (!currentTradeStock) return;
+    const token = typeof getAuthToken === 'function' ? getAuthToken() : localStorage.getItem('ss_token');
+    if (!token) {
+        showToast('Please login first to add trade to portfolio!', 'error');
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        return;
+    }
+
+    const symbol = currentTradeStock.Symbol;
+    const entryPrice = parseFloat(currentTradeStock.LTP) || 0;
+    const isBull = currentTradeStock.Bias === 'BULLISH';
+    const target1 = isBull ? entryPrice * 1.015 : entryPrice * 0.985;
+    const sl = isBull ? entryPrice * 0.9925 : entryPrice * 1.0075;
+
+    const riskAmt = parseFloat(document.getElementById('calcRiskAmount').value) || 1000;
+    const riskPerShare = Math.abs(entryPrice - sl);
+    const qty = riskPerShare > 0 ? Math.floor(riskAmt / riskPerShare) : 1;
+
+    if (qty <= 0) {
+        showToast('Invalid quantity calculated!', 'error');
+        return;
+    }
+
+    const buyDate = new Date().toISOString().split('T')[0];
+    const notes = `Intraday ${currentTradeStock.Bias || 'Pick'} — Target: ₹${fmtNum(target1)}, SL: ₹${fmtNum(sl)}`;
+
+    const btn = document.getElementById('btnExecuteTrade');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Adding to Portfolio...';
+    }
+
+    try {
+        const res = await fetch(`${API}/portfolio/buy`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                symbol: symbol,
+                quantity: qty,
+                buyPrice: entryPrice,
+                buyDate: buyDate,
+                notes: notes
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to add trade');
+
+        showToast(`✅ Executed! ${qty} shares of ${symbol} added to Portfolio!`, 'success');
+        closeIntradayTradeModal();
+
+        if (typeof loadPortfolioPage === 'function' && state.currentPage === 'portfolio') {
+            loadPortfolioPage();
+        }
+    } catch(e) {
+        showToast('❌ Trade error: ' + e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Execute &amp; Add to Portfolio';
+        }
+    }
+}
+
+function applyIntradayPreset(preset) {
+    const search = document.getElementById('intradaySearch');
+    const bias = document.getElementById('intradayBiasFilter');
+    const sector = document.getElementById('intradaySectorFilter');
+    const val = document.getElementById('intradayValueFilter');
+    const move = document.getElementById('intradayMoveFilter');
+
+    if (search) search.value = '';
+    if (sector) sector.value = '';
+    if (bias) bias.value = 'all';
+    if (val) val.value = '0';
+    if (move) move.value = '0';
+    intradaySortCol = 'IntradayScore';
+    intradaySortAsc = false;
+
+    if (preset === 'bullish' && bias) bias.value = 'BULLISH';
+    else if (preset === 'bearish' && bias) bias.value = 'BEARISH';
+    else if (preset === 'momentum') {
+        if (bias) bias.value = 'BULLISH';
+        if (move) move.value = '3';
+    } else if (preset === 'turnover') {
+        if (val) val.value = '100';
+    } else if (preset === 'breakout') {
+        if (bias) bias.value = 'BULLISH';
+        intradaySortCol = 'PctFromHigh52W';
+        intradaySortAsc = true;
+    }
+
+    renderIntradayTable();
+}
+
+async function filterTop10BullishSectors() {
+    const date = state.currentDate;
+    document.getElementById('intradayTableBody').innerHTML =
+        `<tr><td colspan="13" class="loading-row"><div class="loading-pulse">Analyzing bullish sectors...</div></td></tr>`;
+
+    try {
+        const sectorData = await fetchJSON(`${API}/analysis/sector-heatmap${date ? `?date=${date}` : ''}`);
+        const bullishSectors = sectorData.filter(s => s.AvgPctChange > 0).map(s => s.Sector);
+
+        if (!state.rawIntradayData) {
+            state.rawIntradayData = await fetchJSON(`${API}/analysis/intraday${date ? `?date=${date}` : ''}`);
+        }
+
+        let data = state.rawIntradayData.filter(s => bullishSectors.includes(s.Sector || 'Others') && s.Bias === 'BULLISH');
+        data = data.slice(0, 10);
+
+        document.getElementById('badge-intraday').textContent = data.length + " (Bullish Top 10)";
 
         if (!data.length) {
             document.getElementById('intradayTableBody').innerHTML =
-                `<tr><td colspan="12">${noDataHtml('No intraday picks found. Import CSV data first.')}</td></tr>`;
+                `<tr><td colspan="13">${noDataHtml('No bullish sector stocks found for intraday.')}</td></tr>`;
             return;
         }
 
         const maxScore = Math.max(...data.map(s => s.IntradayScore || 0), 1);
 
-        document.getElementById('intradayTableBody').innerHTML = data.map((s, i) => `
+        document.getElementById('intradayTableBody').innerHTML = data.map((s, i) => {
+            window.intradayStocksMap[s.Symbol] = s;
+            const entry = parseFloat(s.LTP) || 0;
+            const isBull = s.Bias === 'BULLISH';
+            const target1 = isBull ? entry * 1.015 : entry * 0.985;
+
+            return `
         <tr>
             <td class="neutral-val">${i+1}</td>
             <td class="symbol-cell">
-        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
-        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
-    </td>
+                <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+            </td>
             <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
             <td>₹${fmtNum(s.LTP)}</td>
             <td>₹${fmtNum(s.Open)}</td>
             <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
             <td class="neutral-val">${fmtVol(s.Volume)}</td>
-            <td class="${s.Value >= 100 ? 'gain' : ''}">${fmtNum(s.Value)}</td>
+            <td class="${s.Value >= 100 ? 'gain' : ''}">₹${fmtNum(s.Value)}</td>
             <td class="neutral-val">₹${fmtNum(s.High52W)}</td>
             <td class="${(s.PctFromHigh52W < 5) ? 'gain' : 'neutral-val'}">${fmtNum(s.PctFromHigh52W)}%</td>
             <td><span class="bias-badge ${s.Bias === 'BULLISH' ? 'bullish' : 'bearish'}">${s.Bias === 'BULLISH' ? '🟢 Bull' : '🔴 Bear'}</span></td>
@@ -700,71 +1012,16 @@ async function loadIntradayData() {
                     <div class="score-bar"><div class="score-fill" style="width:${(s.IntradayScore/maxScore*100).toFixed(0)}%"></div></div>
                 </div>
             </td>
-        </tr>`).join('');
-    } catch(e) {
-        console.error(e);
-        document.getElementById('intradayTableBody').innerHTML =
-            `<tr><td colspan="12" class="loading-row" style="color:#ef4444">Error: ${e.message}</td></tr>`;
-    }
-}
-async function filterTop10BullishSectors() {
-    const date = state.currentDate;
-    document.getElementById('intradayTableBody').innerHTML =
-        `<tr><td colspan="12" class="loading-row"><div class="loading-pulse">Analyzing bullish sectors...</div></td></tr>`;
-
-    try {
-        // 1. Get Sector Heatmap to find Bullish Sectors
-        const sectorData = await fetchJSON(`${API}/analysis/sector-heatmap${date ? `?date=${date}` : ''}`);
-        const bullishSectors = sectorData.filter(s => s.AvgPctChange > 0).map(s => s.Sector);
-
-        // 2. Get Intraday Data
-        let data = await fetchJSON(`${API}/analysis/intraday${date ? `?date=${date}` : ''}`);
-
-        // 3. Filter Intraday Data to ONLY include stocks from Bullish Sectors
-        data = data.filter(s => bullishSectors.includes(s.Sector || 'Others'));
-
-        // 4. Enforce Bullish Bias
-        data = data.filter(s => s.Bias === 'BULLISH');
-
-        // 5. Slice Top 10
-        data = data.slice(0, 10);
-
-        document.getElementById('badge-intraday').textContent = data.length + " (Bullish Top 10)";
-
-        if (!data.length) {
-            document.getElementById('intradayTableBody').innerHTML =
-                `<tr><td colspan="12">${noDataHtml('No bullish sector stocks found for intraday.')}</td></tr>`;
-            return;
-        }
-
-        const maxScore = Math.max(...data.map(s => s.IntradayScore || 0), 1);
-
-        document.getElementById('intradayTableBody').innerHTML = data.map((s, i) => `
-        <tr>
-            <td class="neutral-val">${i+1}</td>
-            <td class="symbol-cell">
-        <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
-        <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
-    </td>
-            <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
-            <td>₹${fmtNum(s.LTP)}</td>
-            <td>₹${fmtNum(s.Open)}</td>
-            <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
-            <td class="neutral-val">${fmtVol(s.Volume)}</td>
-            <td>₹${formatCr(s.Value)}</td>
-            <td><span class="pct-badge ${s.PctFromHigh52W < 5 ? 'gain' : 'neutral'}">${s.PctFromHigh52W}%</span></td>
-            <td><span class="pct-badge ${s.PricePosition52W > 80 ? 'gain' : 'neutral'}">${s.PricePosition52W}%</span></td>
-            <td><span class="badge ${s.Bias === 'BULLISH' ? 'bullish' : 'bearish'}">${s.Bias}</span></td>
             <td>
-                <div class="score-bar-bg">
-                    <div class="score-bar-fill" style="width: ${(s.IntradayScore/maxScore)*100}%"></div>
-                </div>
-                <span style="font-size: 0.75rem; margin-top:4px; display:block;">Score: ${s.IntradayScore}</span>
+                <button class="btn-sm" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.35); font-weight:700; padding:5px 12px; font-size:0.78rem; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(56,189,248,0.2);" onclick="openIntradayTradeModalBySymbol('${s.Symbol}')">
+                    🎯 Setup (T: ₹${fmtNum(target1)})
+                </button>
             </td>
-        </tr>`).join('');
+        </tr>`;
+        }).join('');
     } catch (e) {
         console.error(e);
-        document.getElementById('intradayTableBody').innerHTML = `<p style="color:#ef4444">Error: ${e.message}</p>`;
+        document.getElementById('intradayTableBody').innerHTML = `<tr><td colspan="13" style="color:#ef4444">Error: ${e.message}</td></tr>`;
     }
 }
 
@@ -1443,11 +1700,30 @@ async function refreshData() {
 }
 
 // ===== HELPERS =====
-async function fetchJSON(url) {
+async function fetchJSON(url, retries = 3) {
     const headers = typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' };
-    const res = await fetch(url, { headers });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url, { headers });
+            if (res.status === 401) {
+                if (typeof doLogout === 'function') {
+                    doLogout();
+                } else {
+                    localStorage.removeItem('ss_token');
+                    localStorage.removeItem('ss_user');
+                    if (typeof updateAuthUI === 'function') updateAuthUI();
+                }
+                if (typeof showToast === 'function') showToast('Session expired. Please login again.', 'error');
+                throw new Error('Session expired (401). Please login again.');
+            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        } catch (err) {
+            if (err.message.includes('401')) throw err;
+            if (attempt === retries) throw err;
+            await new Promise(r => setTimeout(r, attempt * 1000));
+        }
+    }
 }
 
 function fmt(n) { return n != null ? Number(n).toLocaleString('en-IN') : '--'; }
@@ -1469,11 +1745,123 @@ function formatDate(d) {
     const dt = new Date(d);
     return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function pctClass(v) { if (!v) return 'neutral'; return v > 0 ? 'gain' : v < 0 ? 'loss' : 'neutral'; }
+function pctClass(v) {
+    if (v == null) return 'sideways';
+    const num = parseFloat(v);
+    if (isNaN(num) || Math.abs(num) <= 0.05) return 'sideways';
+    return num > 0 ? 'gain' : 'loss';
+}
+
 function signedPct(v) {
     if (v == null) return '--';
-    return (v > 0 ? '+' : '') + parseFloat(v).toFixed(2) + '%';
+    const num = parseFloat(v);
+    if (isNaN(num)) return '--';
+    const sign = num > 0 ? '+' : '';
+    return sign + num.toFixed(2) + '%';
 }
+
+// ── Load portfolio page ──────────────────────────────────────
+async function loadPortfolioPage() {
+    try {
+        // Load summary
+        const [summary, holdings] = await Promise.all([
+            fetchJSON(`${API}/portfolio/summary`),
+            fetchJSON(`${API}/portfolio`)
+        ]);
+
+        // Update summary cards
+        const fmt2 = v => '₹' + Math.abs(v).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const pct  = summary.TotalInvested > 0
+            ? ((summary.UnrealizedPnL / summary.TotalInvested) * 100).toFixed(2)
+            : 0;
+
+        document.getElementById('pfInvested').textContent   = fmt2(summary.TotalInvested);
+        document.getElementById('pfCurrent').textContent    = fmt2(summary.CurrentValue);
+        document.getElementById('pfHoldings').textContent   = summary.TotalHoldings;
+        document.getElementById('pfTrades').textContent     = summary.TotalTrades;
+
+        // Unrealized P&L
+        const unEl  = document.getElementById('pfUnrealized');
+        const unCard= document.getElementById('pfUnrealizedCard');
+        const unState = Math.abs(summary.UnrealizedPnL) <= 1 ? 'sideways' : (summary.UnrealizedPnL > 0 ? 'gain' : 'loss');
+        const sign  = summary.UnrealizedPnL > 0 ? '+' : (summary.UnrealizedPnL < 0 ? '-' : '');
+        unEl.textContent = sign + fmt2(summary.UnrealizedPnL);
+        document.getElementById('pfUnrealizedPct').textContent = sign + Math.abs(pct) + '%';
+        unEl.style.color  = unState === 'gain' ? '#4ade80' : (unState === 'loss' ? '#f87171' : '#fb923c');
+        unCard.style.borderLeft = `3px solid ${unState === 'gain' ? '#4ade80' : (unState === 'loss' ? '#f87171' : '#fb923c')}`;
+
+        // Realized P&L
+        const reEl  = document.getElementById('pfRealized');
+        const reCard= document.getElementById('pfRealizedCard');
+        const reState = Math.abs(summary.RealizedPnL) <= 1 ? 'sideways' : (summary.RealizedPnL > 0 ? 'gain' : 'loss');
+        reEl.textContent = (summary.RealizedPnL > 0 ? '+' : (summary.RealizedPnL < 0 ? '-' : '')) + fmt2(summary.RealizedPnL);
+        reEl.style.color  = reState === 'gain' ? '#4ade80' : (reState === 'loss' ? '#f87171' : '#fb923c');
+        reCard.style.borderLeft = `3px solid ${reState === 'gain' ? '#4ade80' : (reState === 'loss' ? '#f87171' : '#fb923c')}`;
+
+        // Render table
+        const tbody = document.getElementById('portfolioTableBody');
+        if (!holdings.length) {
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:40px;">
+                <div style="font-size:2rem; margin-bottom:10px;">📭</div>
+                <div style="color:var(--text-muted);">Portfolio khali hai.<br>
+                <strong style="color:var(--accent);">➕ Add Buy Trade</strong> se pehla stock add karein.</div>
+            </td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = holdings.map((h, i) => {
+            const ltp      = parseFloat(h.LTP) || 0;
+            const avg      = parseFloat(h.AvgBuyPrice);
+            const qty      = parseFloat(h.Quantity);
+            const invested = avg * qty;
+            const current  = ltp * qty;
+            const pnl      = current - invested;
+            const pnlPct   = invested > 0 ? (pnl / invested * 100) : 0;
+            const dayPct   = parseFloat(h.DayPct) || 0;
+
+            const getPnlState = (v) => Math.abs(v) <= 0.001 ? 'sideways' : (v > 0 ? 'gain' : 'loss');
+            const getPnlBg = (v) => Math.abs(v) <= 0.001 ? 'rgba(251,146,60,0.16)' : (v > 0 ? 'rgba(34,197,94,0.16)' : 'rgba(248,113,113,0.16)');
+            const getPnlBorder = (v) => Math.abs(v) <= 0.001 ? 'rgba(251,146,60,0.35)' : (v > 0 ? 'rgba(34,197,94,0.35)' : 'rgba(248,113,113,0.35)');
+            const getPnlColor = (v) => Math.abs(v) <= 0.001 ? '#fb923c' : (v > 0 ? '#22c55e' : '#f87171');
+
+            const pnlState = getPnlState(pnl);
+
+            const pc   = v => (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+            const pfmt = v => (v > 0 ? '+₹' : (v < 0 ? '-₹' : '₹')) + Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits: 0});
+            const mfmt = v => '₹' + v.toLocaleString('en-IN', {maximumFractionDigits: 0});
+
+            return `<tr class="row-${pnlState}">
+                <td class="neutral-val">${i + 1}</td>
+                <td class="symbol-cell"><strong>${h.Symbol}</strong></td>
+                <td><span class="sector-pill">${h.SectorName || h.Sector || '--'}</span></td>
+                <td style="font-weight:600;">${qty % 1 === 0 ? qty.toFixed(0) : qty}</td>
+                <td style="color:var(--text-secondary);">₹${avg.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+                <td><strong style="color:var(--text-primary);">₹${ltp.toLocaleString('en-IN', {maximumFractionDigits: 2})}</strong></td>
+                <td style="color:var(--text-secondary);">${mfmt(invested)}</td>
+                <td style="color:var(--text-primary); font-weight:600;">${mfmt(current)}</td>
+                <td><span class="pct-badge ${getPnlState(pnl)}" style="color:${getPnlColor(pnl)} !important; background:${getPnlBg(pnl)} !important; border:1px solid ${getPnlBorder(pnl)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block;">${pfmt(pnl)}</span></td>
+                <td><span class="pct-badge ${getPnlState(pnlPct)}" style="color:${getPnlColor(pnlPct)} !important; background:${getPnlBg(pnlPct)} !important; border:1px solid ${getPnlBorder(pnlPct)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block;">${pc(pnlPct)}</span></td>
+                <td><span class="pct-badge ${getPnlState(dayPct)}" style="color:${getPnlColor(dayPct)} !important; background:${getPnlBg(dayPct)} !important; border:1px solid ${getPnlBorder(dayPct)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block;">${pc(dayPct)}</span></td>
+                <td>
+                    <button onclick="openSellModal('${h.Symbol}', ${qty}, ${ltp})"
+                        style="background:linear-gradient(135deg,#7f1d1d,#ef4444);border:none;color:#fff;
+                        padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;box-shadow:0 2px 8px rgba(239,68,68,0.3);">
+                        💸 Sell
+                    </button>
+                    <button onclick="deleteHolding(${h.Id}, '${h.Symbol}')"
+                        style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-muted);
+                        padding:5px 9px;border-radius:6px;cursor:pointer;font-size:0.75rem;margin-left:4px;">
+                        🗑
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+
+    } catch(e) {
+        console.error('Portfolio error:', e);
+    }
+}
+
 function noDataHtml(msg) {
     return `<div class="no-data"><div class="no-data-icon">📭</div><div class="no-data-title">No Data Available</div><div class="no-data-text">${msg}</div></div>`;
 }
@@ -1784,35 +2172,158 @@ async function loadWatchlistData() {
 // ==========================================
 // DETAILED STOCK MODAL & CHART
 // ==========================================
+// ==========================================
+// DETAILED STOCK MODAL & TRADINGVIEW CHARTING
+// ==========================================
 let stockChartInstance = null;
 let lwChartInstance = null;
+let lwVolumeChartInstance = null;
+let lwRsiChartInstance = null;
 let currentStockData = null;
+let currentStockSymbol = null;
+let currentChartTimeframe = '1D';
 
 async function openStockModal(symbol) {
-    document.getElementById('modalStockTitle').textContent = `${symbol} Details`;
+    currentStockSymbol = symbol;
+    document.getElementById('modalStockTitle').textContent = `${symbol} Interactive Chart`;
     const modal = document.getElementById('stockModal');
     modal.style.display = 'block';
     
-    document.getElementById('modalStockStats').innerHTML = '<div class="loading-pulse">Loading Historical Data...</div>';
-    
     if (stockChartInstance) { stockChartInstance.destroy(); stockChartInstance = null; }
     if (lwChartInstance) { lwChartInstance.remove(); lwChartInstance = null; }
+    if (lwVolumeChartInstance) { lwVolumeChartInstance.remove(); lwVolumeChartInstance = null; }
+    if (lwRsiChartInstance) { lwRsiChartInstance.remove(); lwRsiChartInstance = null; }
     
     try {
-        const res = await fetchJSON(`${API}/stocks/${encodeURIComponent(symbol)}/history`);
+        const res = await fetchJSON(`${API}/stocks/${encodeURIComponent(symbol)}/history?tf=${currentChartTimeframe}`);
+        
+        // Clean, sanitize and deduplicate candles to prevent TradingView rendering crashes
+        const rawCandles = res.candles || [];
+        const validCandles = rawCandles
+            .filter(c => c && c.time != null && typeof c.open === 'number' && typeof c.high === 'number' && typeof c.low === 'number' && typeof c.close === 'number' && !isNaN(c.open) && !isNaN(c.high) && !isNaN(c.low) && !isNaN(c.close))
+            .sort((a, b) => {
+                if (typeof a.time === 'number' && typeof b.time === 'number') return a.time - b.time;
+                return String(a.time).localeCompare(String(b.time));
+            });
+
+        const uniqueMap = new Map();
+        validCandles.forEach(c => uniqueMap.set(c.time, c));
+        res.candles = Array.from(uniqueMap.values());
+        res.prices = res.candles.map(c => c.close);
+        res.labels = res.candles.map(c => c.time);
+
         currentStockData = res;
         
-        document.getElementById('modalStockStats').innerHTML = `
-            <div><strong>Symbol:</strong> ${res.symbol}</div>
-            <div><strong>Data:</strong> 6 Months Daily</div>
-        `;
-        
-        const preferredChart = localStorage.getItem('chartType') || 'line';
+        // Update initial OHLC HUD with latest candle
+        if (res.candles && res.candles.length) {
+            const last = res.candles[res.candles.length - 1];
+            const prev = res.candles.length > 1 ? res.candles[res.candles.length - 2] : last;
+            const changePct = prev.close ? (((last.close - prev.close) / prev.close) * 100).toFixed(2) : '0.00';
+            updateOhlcHud(last.open, last.high, last.low, last.close, changePct);
+        }
+
+        const preferredChart = localStorage.getItem('chartType') || 'candle';
         setChartType(preferredChart, true);
         
     } catch(e) {
-        document.getElementById('modalStockStats').innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
+        console.error('Chart history load error:', e);
     }
+}
+
+function updateOhlcHud(o, h, l, c, changePct, rsiVal) {
+    const oEl = document.getElementById('hudO');
+    const hEl = document.getElementById('hudH');
+    const lEl = document.getElementById('hudL');
+    const cEl = document.getElementById('hudC');
+    const chEl = document.getElementById('hudChange');
+    const rsiEl = document.getElementById('hudRsi');
+
+    if (oEl) oEl.textContent = '₹' + fmtNum(o);
+    if (hEl) hEl.textContent = '₹' + fmtNum(h);
+    if (lEl) lEl.textContent = '₹' + fmtNum(l);
+    if (cEl) cEl.textContent = '₹' + fmtNum(c);
+    if (chEl) {
+        const numCh = parseFloat(changePct) || 0;
+        chEl.textContent = (numCh >= 0 ? '+' : '') + numCh.toFixed(2) + '%';
+        chEl.style.color = numCh >= 0 ? '#22c55e' : '#f87171';
+    }
+    if (rsiEl) rsiEl.textContent = rsiVal != null ? rsiVal : '--';
+}
+
+function calculateEMA(candles, period = 20) {
+    if (!candles || candles.length < period) return [];
+    const k = 2 / (period + 1);
+    let ema = candles[0].close;
+    const result = [];
+    for (let i = 0; i < candles.length; i++) {
+        const close = candles[i].close;
+        if (i === 0) ema = close;
+        else ema = close * k + ema * (1 - k);
+        if (i >= period - 1) {
+            result.push({ time: candles[i].time, value: parseFloat(ema.toFixed(2)) });
+        }
+    }
+    return result;
+}
+
+function calculateSMA(candles, period = 50) {
+    if (!candles || candles.length < period) return [];
+    const result = [];
+    for (let i = period - 1; i < candles.length; i++) {
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+            sum += candles[i - j].close;
+        }
+        result.push({ time: candles[i].time, value: parseFloat((sum / period).toFixed(2)) });
+    }
+    return result;
+}
+
+function calculateRSI(candles, period = 14) {
+    if (!candles || candles.length <= period) return [];
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= period; i++) {
+        const change = candles[i].close - candles[i - 1].close;
+        if (change >= 0) gains += change;
+        else losses += Math.abs(change);
+    }
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+    const result = [];
+
+    for (let i = period; i < candles.length; i++) {
+        const change = candles[i].close - candles[i - 1].close;
+        const gain = change >= 0 ? change : 0;
+        const loss = change < 0 ? Math.abs(change) : 0;
+
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        const rsi = 100 - (100 / (1 + rs));
+        result.push({ time: candles[i].time, value: parseFloat(rsi.toFixed(2)) });
+    }
+    return result;
+}
+
+function toggleIndicator(indName) {
+    const type = localStorage.getItem('chartType') || 'candle';
+    setChartType(type, true);
+}
+
+function changeChartTimeframe(tf) {
+    currentChartTimeframe = tf;
+    document.querySelectorAll('.chart-tf-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.id === `tf-${tf}`);
+    });
+    if (currentStockSymbol) openStockModal(currentStockSymbol);
+}
+
+function openTradeSetupFromModal() {
+    if (!currentStockSymbol) return;
+    const stock = (state.allStocksData || []).find(s => s.Symbol === currentStockSymbol) || { Symbol: currentStockSymbol, LTP: currentStockData?.prices?.slice(-1)[0] || 0 };
+    closeStockModal();
+    openIntradayTradeModal(stock);
 }
 
 function setChartType(type, forceRender = false) {
@@ -1826,19 +2337,30 @@ function setChartType(type, forceRender = false) {
     
     const canvas = document.getElementById('stockHistoryChart');
     const lwContainer = document.getElementById('lightweightChartContainer');
+    const volumeWrapper = document.getElementById('volumeChartWrapper');
+    const rsiWrapper = document.getElementById('rsiChartWrapper');
     
     if (stockChartInstance) { stockChartInstance.destroy(); stockChartInstance = null; }
     if (lwChartInstance) { lwChartInstance.remove(); lwChartInstance = null; }
+    if (lwVolumeChartInstance) { lwVolumeChartInstance.remove(); lwVolumeChartInstance = null; }
+    if (lwRsiChartInstance) { lwRsiChartInstance.remove(); lwRsiChartInstance = null; }
     
-    const showST = document.getElementById('superTrendToggle') ? document.getElementById('superTrendToggle').checked : false;
+    const showVolume = document.getElementById('volumeToggle')?.checked ?? true;
+    const showRSI = document.getElementById('rsiToggle')?.checked || false;
+    const showEMA20 = document.getElementById('ema20Toggle')?.checked || false;
+    const showSMA50 = document.getElementById('sma50Toggle')?.checked || false;
+    const showST = document.getElementById('superTrendToggle')?.checked || false;
+
+    if (volumeWrapper) volumeWrapper.style.display = showVolume ? 'block' : 'none';
+    if (rsiWrapper) rsiWrapper.style.display = showRSI ? 'block' : 'none';
     
     if (type === 'line') {
         canvas.style.display = 'block';
         lwContainer.style.display = 'none';
         
         const ctx = canvas.getContext('2d');
-        const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
-        const textColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim();
+        const gridColor = 'rgba(148,163,184,0.1)';
+        const textColor = '#94a3b8';
         
         const minPrice = Math.min(...currentStockData.prices) * 0.95;
         const maxPrice = Math.max(...currentStockData.prices) * 1.05;
@@ -1846,37 +2368,17 @@ function setChartType(type, forceRender = false) {
         const datasets = [{
             label: 'Closing Price (₹)',
             data: currentStockData.prices,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
             borderWidth: 2,
             pointRadius: 0,
-            pointHoverRadius: 5,
             fill: true,
             tension: 0.1
         }];
         
-        if (showST && currentStockData.candles) {
-            const stData = calculateSuperTrend(currentStockData.candles, 10, 3);
-            datasets.push({
-                label: 'SuperTrend',
-                data: stData.values,
-                borderColor: stData.colors,
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                tension: 0,
-                segment: {
-                    borderColor: ctx => stData.colors[ctx.p0DataIndex]
-                }
-            });
-        }
-
         stockChartInstance = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: currentStockData.labels,
-                datasets: datasets
-            },
+            data: { labels: currentStockData.labels, datasets: datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -1892,51 +2394,118 @@ function setChartType(type, forceRender = false) {
         canvas.style.display = 'none';
         lwContainer.style.display = 'block';
         
-        const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
-        const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+        const gridColor = 'rgba(148,163,184,0.08)';
+        const textColor = '#cbd5e1';
         
         lwChartInstance = LightweightCharts.createChart(lwContainer, {
             layout: { background: { type: 'solid', color: 'transparent' }, textColor: textColor },
             grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
-            timeScale: { borderColor: gridColor },
+            timeScale: { borderColor: gridColor, timeVisible: true },
+            rightPriceScale: { borderColor: gridColor },
             crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
         });
         
         const candlestickSeries = lwChartInstance.addCandlestickSeries({
             upColor: '#22c55e',
-            downColor: '#ef4444',
-            borderVisible: false,
+            downColor: '#f87171',
+            borderUpColor: '#22c55e',
+            borderDownColor: '#f87171',
             wickUpColor: '#22c55e',
-            wickDownColor: '#ef4444'
+            wickDownColor: '#f87171'
         });
         
         candlestickSeries.setData(currentStockData.candles);
-        
-        if (showST) {
-            const stData = calculateSuperTrend(currentStockData.candles, 10, 3);
-            const stSeries = lwChartInstance.addLineSeries({
-                lineWidth: 2,
-                crosshairMarkerVisible: false,
-                lastValueVisible: false,
-                priceLineVisible: false
-            });
-            stSeries.setData(stData.data);
+
+        // EMA 20
+        if (showEMA20) {
+            const emaData = calculateEMA(currentStockData.candles, 20);
+            if (emaData.length) {
+                const emaSeries = lwChartInstance.addLineSeries({ color: '#38bdf8', lineWidth: 2, title: 'EMA 20' });
+                emaSeries.setData(emaData);
+            }
+        }
+
+        // SMA 50
+        if (showSMA50) {
+            const smaData = calculateSMA(currentStockData.candles, 50);
+            if (smaData.length) {
+                const smaSeries = lwChartInstance.addLineSeries({ color: '#eab308', lineWidth: 2, title: 'SMA 50' });
+                smaSeries.setData(smaData);
+            }
         }
         
+        // SuperTrend
+        if (showST) {
+            const stData = calculateSuperTrend(currentStockData.candles, 10, 3);
+            const stSeries = lwChartInstance.addLineSeries({ lineWidth: 2, priceLineVisible: false });
+            stSeries.setData(stData.data);
+        }
+
+        // Dedicated Volume Sub-Pane Chart
+        if (showVolume) {
+            const volumeContainer = document.getElementById('volumeChartContainer');
+            lwVolumeChartInstance = LightweightCharts.createChart(volumeContainer, {
+                layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
+                timeScale: { visible: false },
+                rightPriceScale: { borderColor: gridColor, scaleMargins: { top: 0.1, bottom: 0.05 } }
+            });
+
+            const volumeSeries = lwVolumeChartInstance.addHistogramSeries({
+                priceFormat: { type: 'volume' }
+            });
+            volumeSeries.setData(currentStockData.candles.map(c => ({
+                time: c.time,
+                value: c.volume || (c.close ? Math.round(c.close * 25) : 1000),
+                color: c.close >= c.open ? '#22c55e' : '#f87171'
+            })));
+
+            lwVolumeChartInstance.timeScale().fitContent();
+        }
+
+        // RSI Sub-pane Chart
+        if (showRSI) {
+            const rsiContainer = document.getElementById('rsiChartContainer');
+            lwRsiChartInstance = LightweightCharts.createChart(rsiContainer, {
+                layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
+                timeScale: { visible: false },
+                rightPriceScale: { borderColor: gridColor, scaleMargins: { top: 0.1, bottom: 0.1 } }
+            });
+
+            const rsiSeries = lwRsiChartInstance.addLineSeries({ color: '#c084fc', lineWidth: 2 });
+            const rsiData = calculateRSI(currentStockData.candles, 14);
+            rsiSeries.setData(rsiData);
+
+            // Overbought (70) & Oversold (30) reference lines
+            rsiSeries.createPriceLine({ price: 70, color: '#f87171', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '70 OB' });
+            rsiSeries.createPriceLine({ price: 30, color: '#22c55e', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '30 OS' });
+
+            lwRsiChartInstance.timeScale().fitContent();
+        }
+        
+        // Connect Crosshair HUD Listener
+        lwChartInstance.subscribeCrosshairMove(param => {
+            if (!param || !param.time) return;
+            const bar = param.seriesData.get(candlestickSeries);
+            if (bar) {
+                const changePct = bar.open ? (((bar.close - bar.open) / bar.open) * 100).toFixed(2) : '0.00';
+                updateOhlcHud(bar.open, bar.high, bar.low, bar.close, changePct);
+            }
+        });
+
         lwChartInstance.timeScale().fitContent();
     }
-}
-
-function toggleSuperTrend() {
-    const type = localStorage.getItem('chartType') || 'line';
-    setChartType(type, true); // force re-render
 }
 
 function closeStockModal() {
     document.getElementById('stockModal').style.display = 'none';
     if (stockChartInstance) { stockChartInstance.destroy(); stockChartInstance = null; }
     if (lwChartInstance) { lwChartInstance.remove(); lwChartInstance = null; }
+    if (lwVolumeChartInstance) { lwVolumeChartInstance.remove(); lwVolumeChartInstance = null; }
+    if (lwRsiChartInstance) { lwRsiChartInstance.remove(); lwRsiChartInstance = null; }
     currentStockData = null;
+    currentStockSymbol = null;
 }
 
 // ==========================================
@@ -2329,34 +2898,40 @@ async function loadPortfolioPage() {
             const current  = ltp * qty;
             const pnl      = current - invested;
             const pnlPct   = invested > 0 ? (pnl / invested * 100) : 0;
-            const isGain   = pnl >= 0;
             const dayPct   = parseFloat(h.DayPct) || 0;
 
-            const pc   = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
-            const pfmt = v => (v >= 0 ? '+₹' : '-₹') + Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits: 0});
+            const getPnlState = (v) => Math.abs(v) <= 0.001 ? 'sideways' : (v > 0 ? 'gain' : 'loss');
+            const getPnlBg = (v) => Math.abs(v) <= 0.001 ? 'rgba(251,146,60,0.16)' : (v > 0 ? 'rgba(34,197,94,0.16)' : 'rgba(248,113,113,0.16)');
+            const getPnlBorder = (v) => Math.abs(v) <= 0.001 ? 'rgba(251,146,60,0.35)' : (v > 0 ? 'rgba(34,197,94,0.35)' : 'rgba(248,113,113,0.35)');
+            const getPnlColor = (v) => Math.abs(v) <= 0.001 ? '#fb923c' : (v > 0 ? '#22c55e' : '#f87171');
+
+            const pnlState = getPnlState(pnl);
+
+            const pc   = v => (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+            const pfmt = v => (v > 0 ? '+₹' : (v < 0 ? '-₹' : '₹')) + Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits: 0});
             const mfmt = v => '₹' + v.toLocaleString('en-IN', {maximumFractionDigits: 0});
 
-            return `<tr class="${isGain ? 'pf-row-gain' : 'pf-row-loss'}">
+            return `<tr class="row-${pnlState}">
                 <td class="neutral-val">${i + 1}</td>
                 <td class="symbol-cell"><strong>${h.Symbol}</strong></td>
-                <td><span style="font-size:0.75rem;color:var(--text-muted);">${h.SectorName || h.Sector || '--'}</span></td>
-                <td>${qty % 1 === 0 ? qty.toFixed(0) : qty}</td>
-                <td>₹${avg.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
-                <td><strong>₹${ltp.toLocaleString('en-IN', {maximumFractionDigits: 2})}</strong></td>
-                <td>${mfmt(invested)}</td>
-                <td>${mfmt(current)}</td>
-                <td class="${isGain ? 'gain' : 'loss'}" style="font-weight:700;">${pfmt(pnl)}</td>
-                <td class="${isGain ? 'gain' : 'loss'}" style="font-weight:700;">${pc(pnlPct)}</td>
-                <td class="${dayPct >= 0 ? 'gain' : 'loss'}">${pc(dayPct)}</td>
+                <td><span class="sector-pill">${h.SectorName || h.Sector || '--'}</span></td>
+                <td style="font-weight:600;">${qty % 1 === 0 ? qty.toFixed(0) : qty}</td>
+                <td style="color:var(--text-secondary);">₹${avg.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+                <td><strong style="color:var(--text-primary);">₹${ltp.toLocaleString('en-IN', {maximumFractionDigits: 2})}</strong></td>
+                <td style="color:var(--text-secondary);">${mfmt(invested)}</td>
+                <td style="color:var(--text-primary); font-weight:600;">${mfmt(current)}</td>
+                <td><span class="pct-badge ${getPnlState(pnl)}" style="color:${getPnlColor(pnl)} !important; background:${getPnlBg(pnl)} !important; border:1px solid ${getPnlBorder(pnl)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block; box-shadow:0 0 10px ${getPnlBg(pnl)};">${pfmt(pnl)}</span></td>
+                <td><span class="pct-badge ${getPnlState(pnlPct)}" style="color:${getPnlColor(pnlPct)} !important; background:${getPnlBg(pnlPct)} !important; border:1px solid ${getPnlBorder(pnlPct)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block; box-shadow:0 0 10px ${getPnlBg(pnlPct)};">${pc(pnlPct)}</span></td>
+                <td><span class="pct-badge ${getPnlState(dayPct)}" style="color:${getPnlColor(dayPct)} !important; background:${getPnlBg(dayPct)} !important; border:1px solid ${getPnlBorder(dayPct)} !important; font-weight:800; padding:4px 10px; border-radius:6px; display:inline-block; box-shadow:0 0 10px ${getPnlBg(dayPct)};">${pc(dayPct)}</span></td>
                 <td>
                     <button onclick="openSellModal('${h.Symbol}', ${qty}, ${ltp})"
                         style="background:linear-gradient(135deg,#7f1d1d,#ef4444);border:none;color:#fff;
-                        padding:4px 10px;border-radius:5px;cursor:pointer;font-size:0.75rem;font-weight:600;">
+                        padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;box-shadow:0 2px 8px rgba(239,68,68,0.3);">
                         💸 Sell
                     </button>
                     <button onclick="deleteHolding(${h.Id}, '${h.Symbol}')"
                         style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-muted);
-                        padding:4px 8px;border-radius:5px;cursor:pointer;font-size:0.75rem;margin-left:4px;">
+                        padding:5px 9px;border-radius:6px;cursor:pointer;font-size:0.75rem;margin-left:4px;">
                         🗑
                     </button>
                 </td>

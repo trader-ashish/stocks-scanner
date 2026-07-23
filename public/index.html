@@ -6,10 +6,18 @@
     <title>Nifty 500 Stock Scanner — NSE Market Analysis</title>
     <meta name="description" content="Professional NSE Nifty 500 Stock Scanner for intraday and weekly trading analysis with sector-wise insights.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=11">
+    <link rel="stylesheet" href="css/style.css?v=999999">
+    <script src="js/app.js?v=9999999999"></script>
+    <script src="js/auth_results.js?v=50"></script>
+    <script>
+        window.API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? '/api'
+            : 'https://stocks-scanner.onrender.com/api';
+        var API = window.API;
+    </script>
 </head>
 <body>
     <!-- SIDEBAR -->
@@ -267,65 +275,65 @@
                 </div>
             </div>
 
-            <!-- ── ROW 3: Main 3-Column Layout ──────────────────────────────── -->
-            <div class="db-main-grid">
+            <!-- ── ROW 3: Top Gainers & Top Losers Side-by-Side Showcase ────────────── -->
+            <div class="db-movers-showcase-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
 
-                <!-- LEFT: Market Breadth + Gainers + Losers -->
-                <div class="db-left-col">
-                    <!-- Breadth -->
-                    <div class="db-panel">
-                        <div class="db-panel-head">
-                            <span>📊 Market Breadth</span>
-                        </div>
-                        <div style="max-width:200px; margin:0 auto;">
-                            <canvas id="breadthChart"></canvas>
-                        </div>
+                <!-- Top Gainers Card -->
+                <div class="db-panel db-panel-gainers" style="margin:0; border-top: 3px solid #22c55e;">
+                    <div class="db-panel-head" style="color:#22c55e; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(34,197,94,0.18); padding-bottom:12px; margin-bottom:14px;">
+                        <span style="font-size:1.1rem; font-weight:800; display:flex; align-items:center; gap:8px;">🚀 Top Market Gainers</span>
+                        <span class="pct-badge gain" style="font-size:0.75rem;">TOP 10 BULLS</span>
                     </div>
-
-                    <!-- Top Gainers -->
-                    <div class="db-panel db-panel-gainers">
-                        <div class="db-panel-head" style="color:#22c55e;">
-                            <span>🚀 Top Gainers</span>
-                        </div>
-                        <div class="db-movers-list" id="topGainersList">
-                            <div class="loading-pulse">Loading...</div>
-                        </div>
-                    </div>
-
-                    <!-- Top Losers -->
-                    <div class="db-panel db-panel-losers">
-                        <div class="db-panel-head" style="color:#ef4444;">
-                            <span>🔻 Top Losers</span>
-                        </div>
-                        <div class="db-movers-list" id="topLosersList">
-                            <div class="loading-pulse">Loading...</div>
-                        </div>
+                    <div class="db-movers-grid-list" id="topGainersList" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="loading-pulse">Loading gainers...</div>
                     </div>
                 </div>
 
-                <!-- CENTER: Sector Overview bar list -->
-                <div class="db-center-col">
-                    <div class="db-panel" style="height:100%;">
-                        <div class="db-panel-head" style="justify-content:space-between;">
-                            <span>📈 Sector Performance</span>
-                            <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">View All →</a>
-                        </div>
-                        <div id="sectorOverviewList" class="db-sector-list">
-                            <div class="loading-pulse">Loading sectors...</div>
-                        </div>
+                <!-- Top Losers Card -->
+                <div class="db-panel db-panel-losers" style="margin:0; border-top: 3px solid #f87171;">
+                    <div class="db-panel-head" style="color:#f87171; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(248,113,113,0.18); padding-bottom:12px; margin-bottom:14px;">
+                        <span style="font-size:1.1rem; font-weight:800; display:flex; align-items:center; gap:8px;">🔻 Top Market Losers</span>
+                        <span class="pct-badge loss" style="font-size:0.75rem;">TOP 10 BEARS</span>
+                    </div>
+                    <div class="db-movers-grid-list" id="topLosersList" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="loading-pulse">Loading losers...</div>
                     </div>
                 </div>
 
-                <!-- RIGHT: Sector Heatmap -->
-                <div class="db-right-col">
-                    <div class="db-panel" style="height:100%;">
-                        <div class="db-panel-head" style="justify-content:space-between;">
-                            <span>🌡️ Sector Heatmap</span>
-                            <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">Full View →</a>
-                        </div>
-                        <div class="heatmap-grid" id="sectorHeatmap" style="margin-top:10px;">
-                            <div class="loading-pulse">Loading sectors...</div>
-                        </div>
+            </div>
+
+            <!-- ── ROW 4: Sector Intelligence & Heatmap Grid ───────────────────── -->
+            <div class="db-sectors-intelligence-grid" style="display:grid; grid-template-columns: 240px 1fr 1.2fr; gap:20px;">
+
+                <!-- Market Breadth Gauge -->
+                <div class="db-panel" style="margin:0;">
+                    <div class="db-panel-head">
+                        <span>📊 Market Breadth</span>
+                    </div>
+                    <div style="max-width:180px; margin:15px auto;">
+                        <canvas id="breadthChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Sector Performance List -->
+                <div class="db-panel" style="margin:0;">
+                    <div class="db-panel-head" style="justify-content:space-between;">
+                        <span>📈 Sector Performance</span>
+                        <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">View All →</a>
+                    </div>
+                    <div id="sectorOverviewList" class="db-sector-list" style="margin-top:10px;">
+                        <div class="loading-pulse">Loading sectors...</div>
+                    </div>
+                </div>
+
+                <!-- Sector Heatmap Grid -->
+                <div class="db-panel" style="margin:0;">
+                    <div class="db-panel-head" style="justify-content:space-between;">
+                        <span>🌡️ Sector Heatmap</span>
+                        <a href="#" onclick="navigateTo('sectors')" class="db-panel-link">Full View →</a>
+                    </div>
+                    <div class="heatmap-grid" id="sectorHeatmap" style="margin-top:10px;">
+                        <div class="loading-pulse">Loading sectors...</div>
                     </div>
                 </div>
 
@@ -698,17 +706,38 @@
                         <strong>💡 Logic:</strong> Filters out low liquidity stocks (Value &lt; 25Cr). Ranks based on: <strong>1D Momentum</strong> (up to +20 pts for >3% move), <strong>30D Trend</strong> (up to +15 pts), and <strong>Breakout Bonus</strong> (+15 pts if near 52W High).
                     </div>
                 </div>
-                <div class="filter-row">
-                    <button class="btn-premium" onclick="exportTableToCSV('intradayTableBody', 'IntradayPicks.csv')">⬇️ Export CSV</button>
-                    <select id="intradayBiasFilter" class="filter-select" onchange="loadIntradayData()">
-                        <option value="all">All Stocks</option>
+                <div class="filter-row" style="gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="intradaySearch" class="filter-select" placeholder="🔍 Search symbol..." oninput="renderIntradayTable()" style="min-width: 150px;">
+                    <select id="intradayBiasFilter" class="filter-select" onchange="renderIntradayTable()">
+                        <option value="all">All Bias (Bull/Bear)</option>
                         <option value="BULLISH">🟢 Bullish Only</option>
                         <option value="BEARISH">🔴 Bearish Only</option>
                     </select>
-                    <select id="intradaySectorFilter" class="filter-select" onchange="loadIntradayData()">
+                    <select id="intradaySectorFilter" class="filter-select" onchange="renderIntradayTable()">
                         <option value="">All Sectors</option>
                     </select>
-                    <button class="btn-premium" onclick="filterTop10BullishSectors()">🌟 Top 10 (Bullish Sectors)</button>
+                    <select id="intradayValueFilter" class="filter-select" onchange="renderIntradayTable()">
+                        <option value="0">All Turnover</option>
+                        <option value="50">💰 &gt; 50Cr</option>
+                        <option value="100">💰 &gt; 100Cr</option>
+                        <option value="250">💰 &gt; 250Cr</option>
+                    </select>
+                    <select id="intradayMoveFilter" class="filter-select" onchange="renderIntradayTable()">
+                        <option value="0">All % Moves</option>
+                        <option value="2">&gt; 2% Move</option>
+                        <option value="3">&gt; 3% Move</option>
+                        <option value="5">&gt; 5% Move</option>
+                    </select>
+                    <button class="btn-premium" onclick="exportTableToCSV('intradayTableBody', 'IntradayPicks.csv')">⬇️ Export CSV</button>
+                </div>
+                <div class="quick-filter-row" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('all')">🔄 Reset All</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('bullish')">🟢 Bullish Only</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('bearish')">🔴 Bearish Only</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('momentum')">🔥 Momentum (&gt;3%)</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('turnover')">💰 High Turnover (&gt;100Cr)</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('breakout')">🚀 Near 52W High (&lt;3%)</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="filterTop10BullishSectors()">🌟 Top 10 Bullish Sectors</button>
                 </div>
             </div>
             <div class="table-container">
@@ -716,17 +745,18 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Symbol</th>
-                            <th>Sector</th>
-                            <th>LTP</th>
-                            <th>Open</th>
-                            <th>Change %</th>
-                            <th>Volume</th>
-                            <th>Value (Cr)</th>
-                            <th>52W H</th>
-                            <th>From High%</th>
-                            <th>Bias</th>
-                            <th>Score</th>
+                            <th onclick="sortIntraday('Symbol')" style="cursor:pointer;" title="Click to sort">Symbol ↕</th>
+                            <th onclick="sortIntraday('Sector')" style="cursor:pointer;" title="Click to sort">Sector ↕</th>
+                            <th onclick="sortIntraday('LTP')" style="cursor:pointer;" title="Click to sort">LTP ↕</th>
+                            <th onclick="sortIntraday('Open')" style="cursor:pointer;" title="Click to sort">Open ↕</th>
+                            <th onclick="sortIntraday('PctChange')" style="cursor:pointer;" title="Click to sort">Change % ↕</th>
+                            <th onclick="sortIntraday('Volume')" style="cursor:pointer;" title="Click to sort">Volume ↕</th>
+                            <th onclick="sortIntraday('Value')" style="cursor:pointer;" title="Click to sort">Value (Cr) ↕</th>
+                            <th onclick="sortIntraday('High52W')" style="cursor:pointer;" title="Click to sort">52W H ↕</th>
+                            <th onclick="sortIntraday('PctFromHigh52W')" style="cursor:pointer;" title="Click to sort">From High% ↕</th>
+                            <th onclick="sortIntraday('Bias')" style="cursor:pointer;" title="Click to sort">Bias ↕</th>
+                            <th onclick="sortIntraday('IntradayScore')" style="cursor:pointer;" title="Click to sort">Score ↕</th>
+                            <th>Trade Target / SL 🎯</th>
                         </tr>
                     </thead>
                     <tbody id="intradayTableBody">
@@ -1494,30 +1524,86 @@
         </div>
     </div>
 
-    <!-- STOCK DETAILS MODAL -->
-    <div id="stockModal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <h2 id="modalStockTitle">Stock Details</h2>
-                    <div class="chart-toggle-group">
-                        <button class="chart-toggle-btn active" id="btn-chart-line" onclick="setChartType('line')">Line</button>
-                        <button class="chart-toggle-btn" id="btn-chart-candle" onclick="setChartType('candle')">Candle</button>
+    <!-- STOCK DETAILS MODAL (TradingView Candlestick Pro Charting) -->
+    <div id="stockModal" class="modal" style="display:none; z-index:9999;">
+        <div class="modal-content" style="max-width: 1240px; width: 92vw; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 24px;">
+            <!-- Modal Header -->
+            <div class="modal-header" style="border-bottom: 1px solid rgba(148,163,184,0.12); padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <h2 id="modalStockTitle" style="font-size: 1.3rem; font-weight: 800; color: var(--text-primary); margin: 0; letter-spacing: 0.02em;">Stock Details</h2>
+                    
+                    <!-- Timeframe Buttons -->
+                    <div class="chart-tf-group" style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 6px;">
+                        <button class="chart-tf-btn" id="tf-5m" onclick="changeChartTimeframe('5m')">5m</button>
+                        <button class="chart-tf-btn" id="tf-15m" onclick="changeChartTimeframe('15m')">15m</button>
+                        <button class="chart-tf-btn active" id="tf-1D" onclick="changeChartTimeframe('1D')">1D</button>
+                        <button class="chart-tf-btn" id="tf-1W" onclick="changeChartTimeframe('1W')">1W</button>
                     </div>
-                    <label style="color: var(--text-muted); font-size: 0.85rem; display: flex; align-items: center; gap: 5px; cursor: pointer; margin-left: 10px;">
-                        <input type="checkbox" id="superTrendToggle" onchange="toggleSuperTrend()" style="cursor: pointer;">
-                        SuperTrend (10,3)
-                    </label>
+
+                    <!-- Chart Type Toggle -->
+                    <div class="chart-toggle-group" style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 6px;">
+                        <button class="chart-toggle-btn" id="btn-chart-line" onclick="setChartType('line')">📈 Line</button>
+                        <button class="chart-toggle-btn active" id="btn-chart-candle" onclick="setChartType('candle')">🕯️ Candle</button>
+                    </div>
+
+                    <!-- Indicator Toggles Toolbar -->
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <label class="chart-ind-toggle" title="Relative Strength Index (14)">
+                            <input type="checkbox" id="rsiToggle" onchange="toggleIndicator('rsi')"> 📉 RSI (14)
+                        </label>
+                        <label class="chart-ind-toggle" title="Exponential Moving Average 20">
+                            <input type="checkbox" id="ema20Toggle" onchange="toggleIndicator('ema20')" checked> ⚡ EMA 20
+                        </label>
+                        <label class="chart-ind-toggle" title="Simple Moving Average 50">
+                            <input type="checkbox" id="sma50Toggle" onchange="toggleIndicator('sma50')" checked> 📊 SMA 50
+                        </label>
+                        <label class="chart-ind-toggle" title="Volume Bars">
+                            <input type="checkbox" id="volumeToggle" onchange="toggleIndicator('volume')" checked> 📊 Volume
+                        </label>
+                        <label class="chart-ind-toggle" title="SuperTrend Indicator">
+                            <input type="checkbox" id="superTrendToggle" onchange="toggleIndicator('supertrend')"> 🚀 SuperTrend
+                        </label>
+                    </div>
                 </div>
-                <span class="close-modal" onclick="closeStockModal()">&times;</span>
+
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="btn-sm" style="background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; border: none; font-weight: 800; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(56,189,248,0.3);" onclick="openTradeSetupFromModal()">
+                        🎯 Open Trade Setup
+                    </button>
+                    <span class="close-modal" onclick="closeStockModal()" style="font-size: 1.8rem; cursor: pointer; color: var(--text-muted);">&times;</span>
+                </div>
             </div>
-            <div class="stock-modal-body" style="display: flex; flex-direction: column; gap: 20px;">
-                <div class="stock-stats" id="modalStockStats" style="display: flex; gap: 20px; font-size: 1.1rem; color: var(--text-primary);">
-                    <!-- Stats will go here -->
+
+            <!-- Modal Body -->
+            <div class="stock-modal-body" style="display: flex; flex-direction: column; gap: 12px; margin-top: 14px;">
+                <!-- Realtime OHLC Cursor HUD -->
+                <div id="chartOhlcHud" style="display: flex; gap: 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; background: rgba(255,255,255,0.03); padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); color: var(--text-secondary); overflow-x: auto;">
+                    <span>O: <strong id="hudO" style="color:var(--text-primary)">--</strong></span>
+                    <span>H: <strong id="hudH" style="color:#22c55e">--</strong></span>
+                    <span>L: <strong id="hudL" style="color:#f87171">--</strong></span>
+                    <span>C: <strong id="hudC" style="color:var(--text-primary)">--</strong></span>
+                    <span>Change: <strong id="hudChange" style="color:#22c55e">--</strong></span>
+                    <span>RSI: <strong id="hudRsi" style="color:#c084fc">--</strong></span>
                 </div>
-                <div class="chart-container" style="height: 400px; width: 100%; position: relative;">
-                    <canvas id="stockHistoryChart"></canvas>
-                    <div id="lightweightChartContainer" style="display: none; width: 100%; height: 100%;"></div>
+
+                <div id="modalStockStats" style="display: none;"></div>
+
+                <!-- Main Candle Chart Container -->
+                <div class="chart-container" style="height: 380px; width: 100%; position: relative; border-radius: 8px; overflow: hidden; background: rgba(11, 15, 25, 0.6); border: 1px solid rgba(148,163,184,0.1);">
+                    <canvas id="stockHistoryChart" style="display:none;"></canvas>
+                    <div id="lightweightChartContainer" style="display: block; width: 100%; height: 100%;"></div>
+                </div>
+
+                <!-- Volume Sub-Pane Chart Container -->
+                <div id="volumeChartWrapper" style="display: none; height: 110px; width: 100%; position: relative; border-radius: 8px; overflow: hidden; background: rgba(11, 15, 25, 0.6); border: 1px solid rgba(148,163,184,0.1); margin-top: 4px;">
+                    <div style="position: absolute; top: 6px; left: 12px; z-index: 10; font-size: 0.72rem; font-weight: 700; color: #38bdf8; font-family: 'JetBrains Mono', monospace;">📊 Volume Sub-Pane</div>
+                    <div id="volumeChartContainer" style="width: 100%; height: 100%;"></div>
+                </div>
+
+                <!-- RSI Sub-Pane Chart Container -->
+                <div id="rsiChartWrapper" style="display: none; height: 110px; width: 100%; position: relative; border-radius: 8px; overflow: hidden; background: rgba(11, 15, 25, 0.6); border: 1px solid rgba(148,163,184,0.1); margin-top: 4px;">
+                    <div style="position: absolute; top: 6px; left: 12px; z-index: 10; font-size: 0.72rem; font-weight: 700; color: #c084fc; font-family: 'JetBrains Mono', monospace;">📉 RSI (14) — Overbought: 70 | Oversold: 30</div>
+                    <div id="rsiChartContainer" style="width: 100%; height: 100%;"></div>
                 </div>
             </div>
         </div>
@@ -1623,7 +1709,7 @@
     </div><!-- /main-content -->
 
     <!-- ======= AUTH MODAL (Login / Register) ======= -->
-    <div id="authModal" class="modal" style="z-index:9999;">
+    <div id="authModal" class="modal" style="display:none; z-index:9999;">
         <div class="auth-modal-card">
             <!-- Header with gradient -->
             <div class="auth-modal-header">
@@ -1683,7 +1769,7 @@
     </div>
 
     <!-- ======= FUNDAMENTALS MODAL ======= -->
-    <div id="fundModal" class="modal">
+    <div id="fundModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:580px;">
             <div class="modal-header">
                 <h2 id="fundModalTitle">💎 Add Fundamentals</h2>
@@ -1755,7 +1841,7 @@
     </div>
 
     <!-- ======= ADD RESULT MODAL ======= -->
-    <div id="resultModal" class="modal">
+    <div id="resultModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:500px;">
             <div class="modal-header">
                 <h2 id="resultModalTitle">📊 Add Result Date</h2>
@@ -1831,14 +1917,84 @@
         </div>
     </div>
 
+    <!-- ======= INTRADAY TRADE SETUP & POSITION CALCULATOR MODAL ======= -->
+    <div id="intradayTradeModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:520px; border:1px solid var(--border); background:var(--bg-card);">
+            <div class="modal-header" style="border-bottom:1px solid var(--border); padding-bottom:12px;">
+                <h2 id="tradeModalSymbol" style="font-size:1.15rem; display:flex; align-items:center; gap:8px;">
+                    🎯 Intraday Trade Setup &amp; Risk Calculator
+                </h2>
+                <span class="close-modal" onclick="closeIntradayTradeModal()">&times;</span>
+            </div>
+            <div style="padding:20px;">
+                <!-- Setup Card -->
+                <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:14px; border:1px solid rgba(255,255,255,0.06); margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span id="tradeModalStockName" style="font-size:1.1rem; font-weight:700; color:var(--text-primary);">RELIANCE</span>
+                        <span id="tradeModalBias" class="bias-badge bullish">🟢 BULLISH</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+                        <div style="background:rgba(59,130,246,0.1); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">ENTRY (LTP)</div>
+                            <div id="tradeModalEntry" style="font-weight:700; color:var(--accent);">₹0.00</div>
+                        </div>
+                        <div style="background:rgba(34,197,94,0.1); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">TARGET 1 (1.5%)</div>
+                            <div id="tradeModalTarget" style="font-weight:700; color:var(--green);">₹0.00</div>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.1); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">STOP LOSS (0.75%)</div>
+                            <div id="tradeModalSL" style="font-weight:700; color:var(--red);">₹0.00</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.78rem; color:var(--text-secondary);">
+                        <span>Risk : Reward = <strong style="color:#22c55e;">1 : 2</strong></span>
+                        <span>Max Target 2 (2.5%): <strong id="tradeModalTarget2" style="color:var(--text-primary);">₹0.00</strong></span>
+                    </div>
+                </div>
+
+                <!-- Position Size Calculator -->
+                <div style="background:rgba(255,255,255,0.02); border-radius:10px; padding:14px; border:1px solid rgba(255,255,255,0.05);">
+                    <h4 style="margin-bottom:10px; font-size:0.9rem; color:var(--accent); display:flex; align-items:center; gap:6px;">
+                        🧮 Position Size Calculator
+                    </h4>
+                    <div class="form-group">
+                        <label class="form-label" style="font-size:0.8rem;">How much money do you want to RISK in ₹?</label>
+                        <input type="number" id="calcRiskAmount" class="form-input" value="1000" step="100" oninput="calculatePositionSize()" style="font-weight:600; font-size:1rem;">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:12px; text-align:center;">
+                        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">BUY SHARES</div>
+                            <div id="calcQty" style="font-weight:700; font-size:1.05rem; color:var(--text-primary);">0</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">TOTAL CAPITAL</div>
+                            <div id="calcCapital" style="font-weight:700; font-size:0.9rem; color:var(--text-secondary);">₹0</div>
+                        </div>
+                        <div style="background:rgba(34,197,94,0.12); padding:8px; border-radius:6px;">
+                            <div style="font-size:0.7rem; color:var(--text-muted);">POTENTIAL PROFIT</div>
+                            <div id="calcProfit" style="font-weight:700; font-size:0.9rem; color:#22c55e;">+₹0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                    <button class="btn-secondary" onclick="closeIntradayTradeModal()">Close</button>
+                    <button class="btn-primary" id="btnExecuteTrade" style="background:linear-gradient(135deg, #22c55e, #16a34a); border:none; padding:8px 16px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;" onclick="executeTradeToPortfolio()">
+                        🚀 Execute &amp; Add to Portfolio
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SIDEBAR OVERLAY FOR MOBILE -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
 
     <!-- TOAST NOTIFICATION -->
     <div class="toast" id="toast"></div>
 
-    <script src="js/app.js?v=9"></script>
-    <script src="js/auth_results.js"></script>
+
     
     <!-- MOBILE SIDEBAR TOGGLE SCRIPT -->
     <script>

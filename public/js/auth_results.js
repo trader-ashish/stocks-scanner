@@ -1,6 +1,13 @@
 // ============================================================
 // ===== AUTH FUNCTIONS =====
 // ============================================================
+if (typeof window.API === 'undefined') {
+    window.API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? '/api'
+        : 'https://stocks-scanner.onrender.com/api';
+}
+var API = window.API;
+
 function getAuthToken() { return localStorage.getItem('ss_token'); }
 function getAuthUser() {
     try { return JSON.parse(localStorage.getItem('ss_user') || 'null'); } catch { return null; }
