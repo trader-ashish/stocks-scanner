@@ -307,14 +307,29 @@ router.get('/:symbol/history', async (req, res) => {
             symbol = symbol + '.NS';
         }
 
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const period1 = sixMonthsAgo.toISOString().split('T')[0];
+        const tf = (req.query.tf || req.query.timeframe || '1D').toUpperCase();
+        let interval = '1d';
+        let period1 = new Date();
+        const isIntraday = (tf === '5M' || tf === '15M');
+
+        if (tf === '5M') {
+            interval = '5m';
+            period1.setDate(period1.getDate() - 5);
+        } else if (tf === '15M') {
+            interval = '15m';
+            period1.setDate(period1.getDate() - 14);
+        } else if (tf === '1W') {
+            interval = '1wk';
+            period1.setFullYear(period1.getFullYear() - 1);
+        } else {
+            interval = '1d';
+            period1.setMonth(period1.getMonth() - 6);
+        }
 
         const queryOptions = {
-            period1: period1,
+            period1: period1.toISOString().split('T')[0],
             period2: new Date().toISOString().split('T')[0],
-            interval: '1d'
+            interval: interval
         };
 
         const result = await yf.chart(symbol, queryOptions);
@@ -325,51 +340,36 @@ router.get('/:symbol/history', async (req, res) => {
         
         if (result && result.quotes) {
             result.quotes.forEach(row => {
+                if (row.close == null || isNaN(row.close)) return;
                 const d = new Date(row.date);
                 const dtStr = d.toISOString().split('T')[0];
-                labels.push(`${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`);
+                
+                // For intraday (5m, 15m), use Unix timestamp in seconds; for daily/weekly use YYYY-MM-DD string
+                const timeVal = isIntraday ? Math.floor(d.getTime() / 1000) : dtStr;
+
+                labels.push(isIntraday ? `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}` : `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`);
                 prices.push(row.close);
                 candles.push({
-                    time: dtStr,
-                    open: row.open,
-                    high: row.high,
-                    low: row.low,
-                    close: row.close
+                    time: timeVal,
+                    open: row.open ?? row.close,
+                    high: row.high ?? row.close,
+                    low: row.low ?? row.close,
+                    close: row.close,
+                    volume: row.volume || 0
                 });
             });
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        const lastCandleDate = candles.length > 0 ? candles[candles.length - 1].time : null;
-
-        if (lastCandleDate !== today) {
-            const date = await resolveDate('Latest');
-            const stocks = await getStocksForDate(date);
-            const stock = stocks.find(s => s.Symbol === rawSymbol);
-            
-            if (stock) {
-                candles.push({
-                    time: today,
-                    open: stock.PrevClose || stock.LTP,
-                    high: stock.LTP,
-                    low: stock.LTP,
-                    close: stock.LTP
-                });
-                labels.push('Today');
-                prices.push(stock.LTP);
-            }
-        }
-
         res.json({
             success: true,
+            symbol: rawSymbol,
             labels,
             prices,
             candles,
-            symbol
+            tf
         });
-    } catch (err) {
-        console.error("History Error:", err);
-        res.status(500).json({ error: 'Failed to fetch historical data: ' + err.message });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
