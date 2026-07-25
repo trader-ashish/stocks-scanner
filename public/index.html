@@ -12,6 +12,19 @@
     <link rel="stylesheet" href="css/style.css?v=999999">
     <script src="js/app.js?v=9999999999"></script>
     <script src="js/auth_results.js?v=50"></script>
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StockScanner">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(err => console.log('SW registration error:', err));
+            });
+        }
+    </script>
     <script>
         window.API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
             ? '/api'
