@@ -112,12 +112,14 @@ async function checkDBConnection() {
 }
 
 // ===== MOBILE SIDEBAR TOGGLE =====
-function toggleMobileSidebar() {
+function toggleMobileSidebar(e) {
+    if (e && e.preventDefault) e.preventDefault();
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     if (!sidebar) return;
     sidebar.classList.toggle('active');
     if (overlay) overlay.classList.toggle('active');
+    document.body.classList.toggle('mobile-sidebar-open');
 }
 
 function closeMobileSidebar() {
@@ -125,6 +127,7 @@ function closeMobileSidebar() {
     const overlay = document.getElementById('sidebarOverlay');
     if (sidebar) sidebar.classList.remove('active');
     if (overlay) overlay.classList.remove('active');
+    document.body.classList.remove('mobile-sidebar-open');
 }
 
 // ===== NAVIGATION =====
