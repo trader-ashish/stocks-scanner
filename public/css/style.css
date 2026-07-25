@@ -2682,22 +2682,79 @@ select.form-input { cursor: pointer; }
     opacity: 1 !important;
 }
 
+.mobile-close-btn {
+    display: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    margin-left: auto;
+    transition: background 0.2s;
+}
+.mobile-close-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
 @media (max-width: 1024px) {
+    .mobile-close-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
     /* 1. Off-canvas Slide Drawer Sidebar */
     .sidebar {
         position: fixed !important;
         top: 0 !important; left: 0 !important; bottom: 0 !important;
-        width: 285px !important;
+        width: 290px !important;
         z-index: 99999 !important;
-        background: #0b0f19 !important;
+        background: #111827 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
         transform: translateX(-100%) !important;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 10px 0 40px rgba(0, 0, 0, 0.8) !important;
+        box-shadow: 15px 0 50px rgba(0, 0, 0, 0.9) !important;
         display: flex !important;
         visibility: visible !important;
     }
     .sidebar.active {
         transform: translateX(0) !important;
+    }
+
+    .sidebar .logo-title {
+        color: #ffffff !important;
+        font-size: 1.05rem !important;
+    }
+    .sidebar .logo-sub {
+        color: #38bdf8 !important;
+    }
+    .sidebar .nav-item {
+        color: #cbd5e1 !important;
+        font-size: 0.88rem !important;
+        padding: 10px 12px !important;
+        border-radius: 8px !important;
+    }
+    .sidebar .nav-item:hover, .sidebar .nav-item.active {
+        background: rgba(56, 189, 248, 0.15) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    }
+    .sidebar .nav-icon {
+        font-size: 1.1rem !important;
+    }
+    .sidebar .nav-label {
+        color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+    .sidebar-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    .sidebar-branding {
+        color: #94a3b8 !important;
     }
 
     /* 2. Main Content Full Viewport Width */
