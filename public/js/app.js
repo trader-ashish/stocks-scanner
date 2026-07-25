@@ -118,6 +118,7 @@ function toggleMobileSidebar(e) {
     const overlay = document.getElementById('sidebarOverlay');
     if (!sidebar) return;
     sidebar.classList.toggle('active');
+    sidebar.classList.toggle('open');
     if (overlay) overlay.classList.toggle('active');
     document.body.classList.toggle('mobile-sidebar-open');
 }
@@ -125,7 +126,10 @@ function toggleMobileSidebar(e) {
 function closeMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    if (sidebar) sidebar.classList.remove('active');
+    if (sidebar) {
+        sidebar.classList.remove('active');
+        sidebar.classList.remove('open');
+    }
     if (overlay) overlay.classList.remove('active');
     document.body.classList.remove('mobile-sidebar-open');
 }
@@ -146,6 +150,12 @@ async function navigateTo(page) {
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`nav-${page}`)?.classList.add('active');
+
+    // Update mobile bottom nav active state
+    document.querySelectorAll('.mobile-nav-item').forEach(m => {
+        if (m.dataset.page === page) m.classList.add('active');
+        else m.classList.remove('active');
+    });
 
     // Update pages with smooth transition
     const prevPageEl = document.querySelector('.page.active');

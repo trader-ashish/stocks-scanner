@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=20260725_v4">
-    <script src="js/app.js?v=20260725_v4"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260725_v5">
+    <script src="js/app.js?v=20260725_v5"></script>
     <script src="js/auth_results.js?v=50"></script>
     <meta name="theme-color" content="#0b0f19">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2083,32 +2083,28 @@
     <div class="toast" id="toast"></div>
 
 
-    
-    <!-- MOBILE SIDEBAR TOGGLE SCRIPT -->
-    <script>
-        function toggleMobileSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            if (sidebar && overlay) {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('active');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            if (sidebar) {
-                sidebar.addEventListener('click', (e) => {
-                    const navItem = e.target.closest('.nav-item');
-                    if (navItem && window.innerWidth <= 768) {
-                        sidebar.classList.remove('open');
-                        if (overlay) overlay.classList.remove('active');
-                    }
-                });
-            }
-        });
-    </script>
+    <!-- MOBILE BOTTOM NAVIGATION BAR (Zerodha/Groww Style) -->
+    <div class="mobile-bottom-nav">
+        <a href="#" class="mobile-nav-item active" data-page="dashboard" onclick="navigateTo('dashboard'); return false;">
+            <span class="mobile-nav-icon">🏠</span>
+            <span class="mobile-nav-label">Home</span>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="nr7" onclick="navigateTo('nr7'); return false;">
+            <span class="mobile-nav-icon">📉</span>
+            <span class="mobile-nav-label">NR7 Scan</span>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="watchlist" onclick="navigateTo('watchlist'); return false;">
+            <span class="mobile-nav-icon">⭐</span>
+            <span class="mobile-nav-label">Watchlist</span>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="sectors" onclick="navigateTo('sectors'); return false;">
+            <span class="mobile-nav-icon">🏭</span>
+            <span class="mobile-nav-label">Sectors</span>
+        </a>
+        <a href="#" class="mobile-nav-item" onclick="toggleMobileSidebar(event); return false;">
+            <span class="mobile-nav-icon">☰</span>
+            <span class="mobile-nav-label">Menu</span>
+        </a>
+    </div>
 </body>
 </html>

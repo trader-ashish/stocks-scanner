@@ -2671,9 +2671,9 @@ select.form-input { cursor: pointer; }
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    z-index: 9999 !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 99999 !important;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -2700,6 +2700,10 @@ select.form-input { cursor: pointer; }
     color: #ef4444;
 }
 
+.mobile-bottom-nav {
+    display: none;
+}
+
 @media (max-width: 1400px) {
     .mobile-close-btn {
         display: flex !important;
@@ -2707,26 +2711,64 @@ select.form-input { cursor: pointer; }
         justify-content: center;
     }
 
-    /* 1. Off-canvas Slide Drawer Sidebar */
+    /* 1. Off-canvas Slide Drawer Sidebar (left: -320px to left: 0) */
     .sidebar {
         position: fixed !important;
-        top: 0 !important; left: 0 !important; bottom: 0 !important;
+        top: 0 !important; left: -320px !important; bottom: 0 !important;
         width: 290px !important;
-        z-index: 100000 !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
         background: #111827 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
-        transform: translateX(-100%) !important;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 15px 0 50px rgba(0, 0, 0, 0.9) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+        transform: none !important;
+        transition: left 0.3s ease-in-out !important;
+        box-shadow: 15px 0 50px rgba(0, 0, 0, 0.95) !important;
         display: flex !important;
         visibility: visible !important;
+        opacity: 1 !important;
     }
-    .sidebar.active, body.mobile-sidebar-open .sidebar {
-        transform: translateX(0) !important;
+    .sidebar.active, .sidebar.open, body.mobile-sidebar-open .sidebar {
+        left: 0 !important;
+        transform: none !important;
         display: flex !important;
         visibility: visible !important;
-        left: 0 !important;
-        z-index: 100000 !important;
+        z-index: 999999 !important;
+        opacity: 1 !important;
+    }
+
+    /* Mobile Bottom Navigation Bar (Zerodha/Groww Style) */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important; left: 0 !important; right: 0 !important;
+        height: 62px !important;
+        background: #0f172a !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+        z-index: 99998 !important;
+        align-items: center !important;
+        justify-content: space-around !important;
+        backdrop-filter: blur(12px) !important;
+        box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.6) !important;
+    }
+    .mobile-nav-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: #94a3b8 !important;
+        text-decoration: none !important;
+        font-size: 0.72rem !important;
+        gap: 3px !important;
+        flex: 1 !important;
+        padding: 6px 0 !important;
+        transition: color 0.2s !important;
+    }
+    .mobile-nav-item.active {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+    .mobile-nav-icon {
+        font-size: 1.25rem !important;
     }
 
     .sidebar .logo-title {
