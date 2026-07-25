@@ -83,6 +83,8 @@ async function saveBreakoutsToFirestore(breakouts, scanType, targetDate) {
                 metrics = 'SuperTrend Bullish Breakout';
             } else if (scanType === 'SuperTrendPullback') {
                 metrics = `ST Support: ₹${b.SupportPrice || 0} (Dist: ${b.DistPct || 0}%)`;
+            } else if (scanType === 'NR7') {
+                metrics = b.Metrics || `Range: ₹${b.TodayRange || 0}, Avg: ₹${b.AvgRange7 || 0}, Vol: ${b.VolRatio || 1}x, Bias: ${b.Bias || 'Neutral'}, Contraction: ${b.ContractionPct || 0}%`;
             }
 
             const docId = `${b.Symbol}_${dateToUse}_${scanType}`;
@@ -428,6 +430,112 @@ router.get('/range-breakout', async (req, res) => {
 
     } catch (err) {
         console.error('Range Breakout Scanner error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/scanner/nr7
+router.get('/nr7', async (req, res) => {
+    try {
+        const snapImports = await db.collection('imports').get();
+        if (snapImports.empty) return res.json([]);
+
+        const ids = snapImports.docs.map(doc => doc.id);
+        ids.sort((a, b) => b.localeCompare(a));
+        const latestDate = ids[0];
+
+        const stocks = await getStocksForDate(latestDate);
+        const filteredStocks = stocks.filter(s => s.LTP > 20 && (s.Value || 0) > 5);
+        filteredStocks.sort((a, b) => (b.Value || 0) - (a.Value || 0));
+
+        const breakouts = [];
+        const date2 = new Date();
+        const date1 = new Date();
+        date1.setDate(date1.getDate() - 35);
+        
+        const queryOptions = {
+            period1: date1.toISOString().split('T')[0],
+            period2: date2.toISOString().split('T')[0],
+            interval: '1d'
+        };
+
+        console.log(`[Firebase] Starting NR7 Volatility Squeeze scan for ${filteredStocks.length} stocks...`);
+        
+        const chunkSize = 20;
+        for (let i = 0; i < filteredStocks.length; i += chunkSize) {
+            const chunk = filteredStocks.slice(i, i + chunkSize);
+            const promises = chunk.map(async (stock) => {
+                const symbol = stock.Symbol + '.NS';
+                try {
+                    const quotes = await yf.chart(symbol, queryOptions);
+                    if (quotes && quotes.quotes && quotes.quotes.length > 12) {
+                        const validQuotes = quotes.quotes.filter(q => q.high !== null && q.low !== null && q.close !== null && q.volume !== null);
+                        if (validQuotes.length >= 8) {
+                            const lastIdx = validQuotes.length - 1;
+                            const todayQuote = validQuotes[lastIdx];
+                            const todayRange = todayQuote.high - todayQuote.low;
+                            
+                            let isNR7 = true;
+                            let sumRanges = todayRange;
+                            
+                            for (let k = 1; k <= 6; k++) {
+                                const q = validQuotes[lastIdx - k];
+                                const rangeK = q.high - q.low;
+                                sumRanges += rangeK;
+                                if (todayRange >= rangeK) {
+                                    isNR7 = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (isNR7 && todayRange > 0) {
+                                const avgRange7 = sumRanges / 7;
+                                const contractionPct = ((1 - todayRange / avgRange7) * 100);
+                                const bias = todayQuote.close >= todayQuote.open ? 'Bullish 🐂' : 'Bearish 🐻';
+                                
+                                let totalVol = 0;
+                                let volCount = 0;
+                                for (let v = lastIdx - 1; v >= Math.max(0, lastIdx - 20); v--) {
+                                    totalVol += validQuotes[v].volume;
+                                    volCount++;
+                                }
+                                const avgVol = volCount > 0 ? (totalVol / volCount) : 0;
+                                const volRatio = avgVol > 0 ? (todayQuote.volume / avgVol) : 1;
+                                const pctChg = lastIdx > 0 ? (((todayQuote.close - validQuotes[lastIdx - 1].close) / validQuotes[lastIdx - 1].close) * 100) : 0;
+
+                                const metrics = `Range: ₹${(todayRange).toFixed(2)}, Avg: ₹${(avgRange7).toFixed(2)}, Vol: ${volRatio.toFixed(2)}x, Bias: ${bias}, Contraction: ${contractionPct.toFixed(1)}%`;
+
+                                return {
+                                    ...stock,
+                                    BreakoutDate: latestDate || new Date().toISOString().split('T')[0],
+                                    TodayRange: parseFloat((todayRange).toFixed(2)),
+                                    AvgRange7: parseFloat((avgRange7).toFixed(2)),
+                                    ContractionPct: parseFloat(contractionPct.toFixed(1)),
+                                    Bias: bias,
+                                    VolRatio: parseFloat(volRatio.toFixed(2)),
+                                    LTP: parseFloat(todayQuote.close.toFixed(2)),
+                                    PctChange: parseFloat(pctChg.toFixed(2)),
+                                    Metrics: metrics
+                                };
+                            }
+                        }
+                    }
+                } catch (err) {}
+                return null;
+            });
+            
+            const results = await Promise.all(promises);
+            for (const r of results) {
+                if (r) breakouts.push(r);
+            }
+        }
+        
+        breakouts.sort((a, b) => b.VolRatio - a.VolRatio);
+        await saveBreakoutsToFirestore(breakouts, 'NR7', latestDate);
+        res.json(breakouts);
+        
+    } catch (err) {
+        console.error('NR7 Scanner error:', err);
         res.status(500).json({ error: err.message });
     }
 });

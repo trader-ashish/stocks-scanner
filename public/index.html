@@ -74,6 +74,10 @@
                 <span class="nav-icon">📦</span>
                 <span class="nav-label">Consolidation Scan</span>
             </a>
+            <a href="#" class="nav-item" data-page="nr7" id="nav-nr7">
+                <span class="nav-icon">📉</span>
+                <span class="nav-label">NR7 Volatility Scan</span>
+            </a>
             <a href="#" class="nav-item" data-page="fundamentals" id="nav-fundamentals">
                 <span class="nav-icon">💎</span>
                 <span class="nav-label">Fundamental Gems</span>
@@ -1054,6 +1058,72 @@
         </div>
 
 
+        <!-- ======= NR7 VOLATILITY SCANNER PAGE ======= -->
+        <div class="page" id="page-nr7">
+            <div class="analysis-header">
+                <div class="analysis-info">
+                    <div class="info-badge breakout" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">📉 NR7 Volatility Contraction Scanner</div>
+                    <p>Finds Nifty 500 stocks with the narrowest candle range in the last 7 trading days. NR7 indicates extreme volatility squeeze setting up for an impending explosive breakout or breakdown.</p>
+                </div>
+                <div class="filter-row">
+                    <button class="btn-premium" id="btnRunNR7" onclick="runNR7Scan()" style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 10px 20px;">
+                        ▶️ Run Live Scan
+                    </button>
+                    <button class="btn-premium" onclick="exportTableToCSV('nr7TableBody', 'NR7_Volatility_Scan.csv')">⬇️ Export CSV</button>
+                </div>
+            </div>
+            
+            <div id="nr7ScanLoading" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 12px; margin-bottom: 20px;">
+                <div class="loading-pulse" style="font-size: 1.2rem; color: #f59e0b;">
+                    <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⏳</span>
+                    Scanning 500 stocks for 7-day range contraction...<br>
+                    <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">This usually takes 20-30 seconds. Please wait.</span>
+                </div>
+            </div>
+
+            <!-- ======= #1 TOP BUY RECOMMENDATION CARD ======= -->
+            <div id="nr7TopPickCard" style="display:none; background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.06)); border: 1px solid rgba(245,158,11,0.4); border-radius: 12px; padding: 18px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(245,158,11,0.15);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="font-size: 2.2rem; background: rgba(245,158,11,0.25); width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(245,158,11,0.4);">👑</div>
+                        <div>
+                            <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; font-weight: 800; display:flex; align-items:center; gap:6px;">
+                                <span>#1 AUTOMATIC TOP RECOMMENDATION TO BUY FIRST</span>
+                            </div>
+                            <div id="nr7TopPickTitle" style="font-size: 1.35rem; font-weight: 800; color: #ffffff; margin-top: 2px;">RELIANCE — ₹2,450.00 (+1.2%)</div>
+                            <div id="nr7TopPickReason" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">Strongest Bullish 🐂 Squeeze setup with high volume & tight range.</div>
+                        </div>
+                    </div>
+                    <button class="btn-primary" id="btnTopPickAction" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; padding: 10px 20px; font-weight: 800; color: #000; cursor: pointer; border-radius: 8px; font-size: 0.9rem;">
+                        ⚡ Open Chart / Setup
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="nr7Table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Sector</th>
+                            <th>Date</th>
+                            <th>LTP</th>
+                            <th>% Change</th>
+                            <th>Today Range (H-L)</th>
+                            <th>7D Avg Range</th>
+                            <th>Vol Ratio</th>
+                            <th>Bias</th>
+                            <th>Chart</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nr7TableBody">
+                        <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Click 'Run Live Scan' to find NR7 volatility squeeze setups.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
         <!-- ======= FUNDAMENTALS PAGE ======= -->
         <div class="page" id="page-fundamentals">
             <div class="analysis-header">
@@ -1383,6 +1453,7 @@
                             <th>FROM HIGH%</th>
                             <th>50D MA</th>
                             <th>200D MA</th>
+                            <th>ACTION</th>
                         </tr>
                     </thead>
                     <tbody id="watchlistTableBody">

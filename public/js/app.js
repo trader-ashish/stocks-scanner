@@ -167,6 +167,7 @@ async function navigateTo(page) {
         indices:    ['Global & GIFT Nifty', 'Live International Markets & GIFT Nifty Ticker'],
         'manage-users': ['User Access Management', 'Control user access permissions and role elevations'],
         'supertrend-pullback': ['SuperTrend Pullback', 'Daily SuperTrend Support Bounces'],
+        nr7: ['NR7 Volatility Scan', 'Narrowest 7-Day Candle Range Volatility Squeeze Candidates'],
     };
     const [title, sub] = titles[page] || ['', ''];
     document.getElementById('pageTitle').textContent = title;
@@ -184,6 +185,7 @@ async function navigateTo(page) {
         case 'supertrend-pullback': await loadSuperTrendPullbackHistory(); break;
         case 'vol-breakout': await loadVolumeBreakoutHistory(); break;
         case 'range-breakout': await loadRangeBreakoutHistory(); break;
+        case 'nr7':        await loadNR7History(); break;
         case 'fundamentals': await loadFundamentalsTable(); break;
         case 'sectors':    await loadSectorPage(); break;
         case 'watchlist':  await loadWatchlistData(); break;
@@ -1195,7 +1197,7 @@ async function runSuperTrendScan() {
         }
 
         tbody.innerHTML = data.map((s, i) => {
-            const bDate = s.BreakoutDate ? new Date(s.BreakoutDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+            const bDate = formatDate(s.BreakoutDate);
             return `
             <tr>
                 <td class="symbol-cell">
@@ -1244,7 +1246,7 @@ async function runVolumeBreakoutScan() {
         }
 
         tbody.innerHTML = data.map((s, i) => {
-            const bDate = new Date().toLocaleDateString('en-IN');
+            const bDate = formatDate(s.BreakoutDate);
             return `
             <tr>
                 <td class="symbol-cell">
@@ -1293,7 +1295,7 @@ async function runRangeBreakoutScan() {
         }
 
         tbody.innerHTML = data.map((s, i) => {
-            const bDate = new Date().toLocaleDateString('en-IN');
+            const bDate = formatDate(s.BreakoutDate);
             return `
             <tr>
                 <td class="symbol-cell">
@@ -1741,8 +1743,25 @@ function formatCr(n) {
     return parseFloat(n).toFixed(0);
 }
 function formatDate(d) {
-    if (!d) return '';
-    const dt = new Date(d);
+    if (!d || d === 'null' || d === 'undefined' || d === 'Invalid Date') {
+        return new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    let dt = new Date(d);
+    if (isNaN(dt.getTime()) && typeof d === 'string') {
+        const clean = d.split('T')[0].trim();
+        const parts = clean.split(/[-/]/);
+        if (parts.length === 3) {
+            if (parts[0].length === 4) { // YYYY-MM-DD
+                dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            } else if (parts[2].length === 4) { // DD-MM-YYYY
+                dt = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+            }
+        }
+    }
+    if (isNaN(dt.getTime())) {
+        if (typeof d === 'string' && d.length >= 8 && d !== 'Invalid Date') return d.split('T')[0];
+        return new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
     return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function pctClass(v) {
@@ -2055,21 +2074,38 @@ function isWatchlisted(symbol) {
 }
 function toggleWatchlist(symbol) {
     let list = getWatchlist();
-    if (list.includes(symbol)) {
-        list = list.filter(s => s !== symbol);
-    } else {
+    const isAdded = !list.includes(symbol);
+    if (isAdded) {
         list.push(symbol);
+    } else {
+        list = list.filter(s => s !== symbol);
     }
     saveWatchlist(list);
     
-    // Update all stars for this symbol in current view
-    document.querySelectorAll(`#star-${symbol}`).forEach(el => {
-        el.textContent = list.includes(symbol) ? '⭐' : '☆';
-    });
+    // Update all star icons in DOM safely
+    updateWatchlistStarIcons(symbol, isAdded);
     
-    if (document.getElementById('page-watchlist').classList.contains('active')) {
+    const pageWatchlist = document.getElementById('page-watchlist');
+    if (pageWatchlist && pageWatchlist.classList.contains('active')) {
         loadWatchlistData();
     }
+}
+
+function removeFromWatchlist(symbol) {
+    let list = getWatchlist();
+    list = list.filter(s => s !== symbol);
+    saveWatchlist(list);
+    
+    updateWatchlistStarIcons(symbol, false);
+    loadWatchlistData();
+}
+
+function updateWatchlistStarIcons(symbol, isWatchlisted) {
+    document.querySelectorAll('.star-icon').forEach(el => {
+        if (el.getAttribute('data-symbol') === symbol || el.id === `star-${symbol}`) {
+            el.textContent = isWatchlisted ? '⭐' : '☆';
+        }
+    });
 }
 
 // ===== WATCHLIST EXPORT: TXT (Notepad) =====
@@ -2132,40 +2168,49 @@ function copyWatchlistForTradingView() {
 async function loadWatchlistData() {
     const list = getWatchlist();
     const tbody = document.getElementById('watchlistTableBody');
+    if (!tbody) return;
+
     if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Your watchlist is empty. Click the ☆ icon next to any stock to add it.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:30px; color:var(--text-muted);">Your watchlist is empty. Click the ☆ icon next to any stock to add it.</td></tr>';
         return;
     }
     
-    tbody.innerHTML = '<tr><td colspan="12" class="loading-row"><div class="loading-pulse">Loading Watchlist...</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="loading-row"><div class="loading-pulse">Loading Watchlist...</div></td></tr>';
     try {
-        const date = document.getElementById('dateSelect').value;
-        // Fetch all stocks to filter locally for simplicity, or we could send a list. Fetching all is fine.
+        const date = document.getElementById('dateSelect')?.value;
         const res = await fetchJSON(`${API}/stocks${date ? '?date='+date : ''}`);
         const stocks = res.stocks || [];
-        const filtered = stocks.filter(s => list.includes(s.Symbol));
+        const stocksMap = new Map();
+        stocks.forEach(s => stocksMap.set(s.Symbol, s));
         
-        tbody.innerHTML = filtered.map((s, i) => `
+        tbody.innerHTML = list.map((sym, i) => {
+            const s = stocksMap.get(sym) || { Symbol: sym, Sector: 'Others', LTP: 0, Open: 0, PctChange: 0, Volume: 0, Value: 0, High52W: 0, SMA50: 0, SMA200: 0 };
+            return `
             <tr>
                 <td class="neutral-val">${i+1}</td>
                 <td class="symbol-cell">
-                    <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">⭐</span> 
-                    <a href="#" style="color:var(--text-primary); text-decoration:none;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                    <span class="star-icon" data-symbol="${s.Symbol}" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">⭐</span> 
+                    <a href="#" style="color:var(--text-primary); text-decoration:none; font-weight:700;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
                 </td>
-                <td style="font-size:0.75rem; color:var(--text-muted);">${s.Sector}</td>
+                <td style="font-size:0.75rem; color:var(--text-muted);">${s.Sector || 'Others'}</td>
                 <td style="font-weight:600;">₹${fmtNum(s.LTP)}</td>
                 <td>₹${fmtNum(s.Open)}</td>
-                <td class="${s.PctChange >= 0 ? 'bullish-val' : 'bearish-val'}">${s.PctChange >= 0 ? '+' : ''}${s.PctChange}%</td>
+                <td><span class="pct-badge ${pctClass(s.PctChange)}">${signedPct(s.PctChange)}</span></td>
                 <td>${fmtVol(s.Volume)}</td>
                 <td>${formatCr(s.Value)}</td>
                 <td>₹${fmtNum(s.High52W)}</td>
-                <td>${(((s.LTP - s.High52W) / s.High52W) * 100).toFixed(2)}%</td>
+                <td>${s.High52W > 0 ? (((s.LTP - s.High52W) / s.High52W) * 100).toFixed(2) + '%' : '--'}</td>
                 <td>${s.SMA50 ? '₹'+fmtNum(s.SMA50) : '-'}</td>
                 <td>${s.SMA200 ? '₹'+fmtNum(s.SMA200) : '-'}</td>
-            </tr>
-        `).join('');
+                <td>
+                    <button style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;" onclick="removeFromWatchlist('${s.Symbol}')" title="Remove from Watchlist">
+                        🗑️ Remove
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="12" style="color:red; text-align:center;">Failed to load watchlist: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="color:red; text-align:center;">Failed to load watchlist: ${e.message}</td></tr>`;
     }
 }
 
@@ -3237,7 +3282,7 @@ async function loadSuperTrendHistory() {
         const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=SuperTrend`);
         if (data && data.length > 0) {
             tbody.innerHTML = data.map((s, i) => {
-                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bDate = formatDate(s.BreakoutDate);
                 const bPrice = parseFloat(s.BreakoutPrice) || 0;
                 const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
                 const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
@@ -3276,7 +3321,7 @@ async function loadVolumeBreakoutHistory() {
         const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=VolumeBreakout`);
         if (data && data.length > 0) {
             tbody.innerHTML = data.map((s, i) => {
-                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bDate = formatDate(s.BreakoutDate);
                 const bPrice = parseFloat(s.BreakoutPrice) || 0;
                 const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
                 const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
@@ -3316,7 +3361,7 @@ async function loadRangeBreakoutHistory() {
         const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=RangeBreakout`);
         if (data && data.length > 0) {
             tbody.innerHTML = data.map((s, i) => {
-                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bDate = formatDate(s.BreakoutDate);
                 const bPrice = parseFloat(s.BreakoutPrice) || 0;
                 const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
                 const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
@@ -3375,7 +3420,7 @@ async function runSTPullbackScan() {
         }
 
         tbody.innerHTML = data.map((s, i) => {
-            const bDate = s.BreakoutDate ? new Date(s.BreakoutDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+            const bDate = formatDate(s.BreakoutDate);
             return `
             <tr>
                 <td class="symbol-cell">
@@ -3409,7 +3454,7 @@ async function loadSuperTrendPullbackHistory() {
         const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=SuperTrendPullback`);
         if (data && data.length > 0) {
             tbody.innerHTML = data.map((s, i) => {
-                const bDate = new Date(s.BreakoutDate).toLocaleDateString('en-IN');
+                const bDate = formatDate(s.BreakoutDate);
                 const bPrice = parseFloat(s.BreakoutPrice) || 0;
                 const cPrice = parseFloat(s.CurrentPrice) || bPrice || 0;
                 const movPct = bPrice > 0 ? ((cPrice - bPrice) / bPrice) * 100 : 0;
@@ -3525,3 +3570,169 @@ function escapeHtml(str) {
 
 // Start live ticking clocks every second
 setInterval(updateMarketClocks, 1000);
+
+// ===== NR7 VOLATILITY SCANNER =====
+function renderNR7TableAndTopPick(data, tbody, isHistory = false) {
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10">${noDataHtml('No NR7 volatility squeeze setups found.')}</td></tr>`;
+        const topCard = document.getElementById('nr7TopPickCard');
+        if (topCard) topCard.style.display = 'none';
+        return;
+    }
+
+    // Process & Score each candidate
+    const processed = data.map(s => {
+        const metrics = s.Metrics || '';
+        let todayRange = s.TodayRange ? '₹' + fmtNum(s.TodayRange) : '--';
+        let avgRange7 = s.AvgRange7 ? '₹' + fmtNum(s.AvgRange7) : '--';
+        let volRatio = s.VolRatio ? s.VolRatio + 'x' : '--';
+        let bias = s.Bias || 'Neutral';
+        let contractionPct = s.ContractionPct ? s.ContractionPct : 0;
+        let contractionLabel = s.ContractionPct ? '(' + s.ContractionPct + '% Squeeze)' : '';
+
+        if (metrics && (todayRange === '--' || avgRange7 === '--')) {
+            const matchRange = metrics.match(/(?:NR7 )?Range:\s*₹?([\d\.]+)/i);
+            const matchAvg = metrics.match(/Avg:\s*₹?([\d\.]+)/i);
+            const matchVol = metrics.match(/Vol:\s*([\d\.]+)x/i);
+            const matchBias = metrics.match(/Bias:\s*(Bullish 🐂|Bearish 🐻|Bullish|Bearish|Neutral)/i);
+            const matchCont = metrics.match(/Contraction:\s*([\d\.]+)%/i);
+            
+            if (matchRange) todayRange = '₹' + matchRange[1];
+            if (matchAvg) avgRange7 = '₹' + matchAvg[1];
+            if (matchVol) volRatio = matchVol[1] + 'x';
+            if (matchBias) bias = matchBias[1];
+            if (matchCont) {
+                contractionPct = parseFloat(matchCont[1]);
+                contractionLabel = '(' + matchCont[1] + '% Squeeze)';
+            }
+
+            if (matchRange && matchCont && (avgRange7 === '--')) {
+                const rVal = parseFloat(matchRange[1]);
+                const cVal = parseFloat(matchCont[1]);
+                if (rVal > 0 && cVal > 0 && cVal < 100) {
+                    const calculatedAvg = rVal / (1 - (cVal / 100));
+                    avgRange7 = '₹' + calculatedAvg.toFixed(2);
+                }
+            }
+        }
+
+        if ((!volRatio || volRatio === '--') && s.BreakoutVolume) {
+            const volNum = parseFloat(s.BreakoutVolume);
+            if (volNum > 1000000) volRatio = (volNum / 1000000).toFixed(1) + 'M';
+            else if (volNum > 1000) volRatio = (volNum / 1000).toFixed(0) + 'K';
+            else if (volNum > 0) volRatio = String(volNum);
+        }
+
+        const isBullish = bias.includes('Bullish');
+        const price = isHistory ? (parseFloat(s.CurrentPrice) || parseFloat(s.BreakoutPrice) || parseFloat(s.LTP) || 0) : (parseFloat(s.LTP) || 0);
+        const change = isHistory ? (parseFloat(s.CurrentPctChange) || parseFloat(s.PctChange) || 0) : (parseFloat(s.PctChange) || 0);
+        const vRatioVal = parseFloat(volRatio) || 1;
+
+        // Auto scoring formula for ranking top buy candidate
+        const score = (isBullish ? 100 : 0) + (contractionPct * 0.8) + (vRatioVal * 15) + (change * 5);
+
+        return {
+            ...s,
+            LTPPrice: price,
+            PctChangeVal: change,
+            TodayRangeLabel: todayRange,
+            AvgRange7Label: avgRange7,
+            VolRatioLabel: volRatio,
+            BiasLabel: bias,
+            ContractionLabel: contractionLabel,
+            ContractionPctVal: contractionPct,
+            IsBullish: isBullish,
+            Score: score
+        };
+    });
+
+    // Sort by Score descending
+    processed.sort((a, b) => b.Score - a.Score);
+
+    // Identify #1 Top Pick Recommendation
+    const topPick = processed[0];
+    const topCard = document.getElementById('nr7TopPickCard');
+    const topTitle = document.getElementById('nr7TopPickTitle');
+    const topReason = document.getElementById('nr7TopPickReason');
+    const topBtn = document.getElementById('btnTopPickAction');
+
+    if (topCard && topTitle && topReason && topPick) {
+        topCard.style.display = 'block';
+        const isBull = topPick.IsBullish;
+        const emoji = isBull ? '🐂 Bullish' : '🐻 Bearish';
+        topTitle.innerHTML = `${topPick.Symbol} — ₹${fmtNum(topPick.LTPPrice)} <span style="font-size:1rem;" class="${pctClass(topPick.PctChangeVal)}">(${signedPct(topPick.PctChangeVal)})</span>`;
+        topReason.innerHTML = `<strong>${emoji} Squeeze Candidate:</strong> Narrowest range in 7 sessions with ${topPick.ContractionPctVal ? topPick.ContractionPctVal + '% Range Contraction' : 'high volatility squeeze'}. Ideal entry for imminent breakout!`;
+        if (topBtn) topBtn.onclick = () => openStockModal(topPick.Symbol);
+    }
+
+    // Render Table
+    tbody.innerHTML = processed.map((s, i) => {
+        const bDate = formatDate(s.BreakoutDate);
+        const biasClass = s.IsBullish ? 'gain' : (s.BiasLabel.includes('Bearish') ? 'loss' : 'pct-zero');
+        
+        let rankBadge = '';
+        if (i === 0) rankBadge = `<span style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#000; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:4px; margin-left:6px;">👑 #1 TOP BUY</span>`;
+        else if (i === 1) rankBadge = `<span style="background:rgba(245,158,11,0.25); color:#f59e0b; font-size:0.68rem; font-weight:700; padding:2px 5px; border-radius:4px; margin-left:6px;">🥈 #2 PICK</span>`;
+        else if (i === 2) rankBadge = `<span style="background:rgba(245,158,11,0.18); color:#f59e0b; font-size:0.68rem; font-weight:700; padding:2px 5px; border-radius:4px; margin-left:6px;">🥉 #3 PICK</span>`;
+
+        return `
+        <tr ${i === 0 ? 'style="background:rgba(245,158,11,0.06);"' : ''}>
+            <td class="symbol-cell">
+                <span class="star-icon" onclick="toggleWatchlist('${s.Symbol}')" id="star-${s.Symbol}">${isWatchlisted(s.Symbol)?'⭐':'☆'}</span> 
+                <a href="#" style="color:var(--text-primary); text-decoration:none; font-weight:700;" onclick="openStockModal('${s.Symbol}')">${s.Symbol}</a>
+                ${rankBadge}
+            </td>
+            <td><span class="sector-pill">${s.Sector || 'Others'}</span></td>
+            <td style="font-weight: 500;">📅 ${bDate}</td>
+            <td style="font-weight: 600; color: var(--text-primary);">₹${fmtNum(s.LTPPrice)}</td>
+            <td><span class="pct-badge ${pctClass(s.PctChangeVal)}">${signedPct(s.PctChangeVal)}</span></td>
+            <td style="color: #f59e0b; font-weight: 600;">${s.TodayRangeLabel} <span style="font-size:0.75rem; color:var(--text-muted);">${s.ContractionLabel}</span></td>
+            <td style="color: var(--text-muted);">${s.AvgRange7Label}</td>
+            <td style="font-weight: 600;">${s.VolRatioLabel}</td>
+            <td><span class="pct-badge ${biasClass}">${s.BiasLabel}</span></td>
+            <td><button class="btn-premium" onclick="openStockModal('${s.Symbol}')" style="padding: 5px 10px; font-size: 0.8rem;">View Chart</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function runNR7Scan() {
+    const btn = document.getElementById('btnRunNR7');
+    const loading = document.getElementById('nr7ScanLoading');
+    const tbody = document.getElementById('nr7TableBody');
+    
+    if (!btn || !tbody) return;
+    btn.disabled = true;
+    btn.innerHTML = 'Scanning...';
+    if (loading) loading.style.display = 'block';
+    tbody.innerHTML = '';
+
+    try {
+        const data = await fetchJSON(`${API}/scanner/nr7`);
+        if (loading) loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+
+        renderNR7TableAndTopPick(data, tbody, false);
+    } catch(e) {
+        console.error(e);
+        if (loading) loading.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Run Live Scan';
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-row" style="color:#ef4444">Error running scan: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadNR7History() {
+    const date = document.getElementById('dateSelect')?.value || 'Latest';
+    const tbody = document.getElementById('nr7TableBody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="10" class="loading-row">Checking history...</td></tr>`;
+    try {
+        const data = await fetchJSON(`${API}/scanner/history?date=${date}&type=NR7`);
+        renderNR7TableAndTopPick(data, tbody, true);
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-row" style="color:#ef4444">Error loading history: ${e.message}</td></tr>`;
+    }
+}
+
