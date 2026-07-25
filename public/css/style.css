@@ -2809,3 +2809,42 @@ select.form-input { cursor: pointer; }
         gap: 12px !important;
     }
 }
+
+/* ============================================================
+   DESKTOP DEFAULT GRIDS & FULL MOBILE STACK OVERRIDES
+   ============================================================ */
+.db-movers-showcase-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+.db-movers-grid-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.db-sectors-intelligence-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr 1.2fr;
+    gap: 20px;
+}
+
+@media (max-width: 1024px) {
+    .db-movers-showcase-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .db-movers-grid-list {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    .db-sectors-intelligence-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .page {
+        padding: 12px !important;
+        max-width: 100vw !important;
+    }
+}
