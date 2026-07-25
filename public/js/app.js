@@ -111,6 +111,22 @@ async function checkDBConnection() {
     }
 }
 
+// ===== MOBILE SIDEBAR TOGGLE =====
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+    sidebar.classList.toggle('active');
+    if (overlay) overlay.classList.toggle('active');
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+}
+
 // ===== NAVIGATION =====
 function initNavigation() {
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -123,6 +139,7 @@ function initNavigation() {
 }
 
 async function navigateTo(page) {
+    closeMobileSidebar();
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`nav-${page}`)?.classList.add('active');
