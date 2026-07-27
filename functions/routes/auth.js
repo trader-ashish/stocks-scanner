@@ -6,16 +6,28 @@ const { db } = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'stockscanner_secret_2026_ashish';
 
-// ── Middleware: verify JWT ──────────────────────────────────
-function authMiddleware(req, res, next) {
+// ── Middleware: verify JWT & Session Token Version ─────────
+async function authMiddleware(req, res, next) {
     const header = req.headers['authorization'];
     if (!header) return res.status(401).json({ error: 'No token provided' });
     const token = header.split(' ')[1];
     try {
-        req.user = jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        
+        // Session Revocation check if tokenVersion is tracked
+        if (decoded.id && typeof decoded.tokenVersion === 'number') {
+            const userDoc = await db.collection('users').doc(decoded.id).get();
+            if (userDoc.exists) {
+                const currentTv = userDoc.data().TokenVersion || 0;
+                if (currentTv > decoded.tokenVersion) {
+                    return res.status(401).json({ error: 'Session expired / Logged out from all devices. Please login again.' });
+                }
+            }
+        }
         next();
     } catch {
-        res.status(401).json({ error: 'Invalid or expired token' });
+        res.status(401).json({ error: 'Invalid or expired token (Session valid for 12 hours max)' });
     }
 }
 
@@ -74,6 +86,7 @@ router.post('/register', async (req, res) => {
                 PasswordHash: hash,
                 Role: role,
                 Permissions: DEFAULT_PERMISSIONS,
+                TokenVersion: 0,
                 CreatedAt: new Date().toISOString()
             });
         });
@@ -139,10 +152,13 @@ router.post('/login', async (req, res) => {
             ? { dashboard: true, scanner: true, fundamentals: true, results: true, portfolio: true, import: true }
             : (user.Permissions || { dashboard: true, scanner: true, fundamentals: true, results: true, portfolio: true, import: false });
 
+        const tokenVersion = user.TokenVersion || 0;
+
+        // JWT Session Valid for EXACTLY 12 Hours
         const token = jwt.sign(
-            { id: user.Id || userDoc.id, username: user.Username, role: user.Role, permissions },
+            { id: user.Id || userDoc.id, username: user.Username, role: user.Role, permissions, tokenVersion },
             JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '12h' }
         );
         res.json({ success: true, token, username: user.Username, role: user.Role, permissions });
     } catch (e) {
@@ -162,6 +178,91 @@ router.get('/me', authMiddleware, async (req, res) => {
         res.json({ username: req.user.username, role: req.user.role, permissions });
     } catch (e) {
         res.json({ username: req.user.username, role: req.user.role, permissions: req.user.permissions });
+    }
+});
+
+// POST /api/auth/change-password (User change own password)
+router.post('/change-password', authMiddleware, async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ error: 'Old password and new password required' });
+        }
+        if (newPassword.length < 4) {
+            return res.status(400).json({ error: 'New password must be at least 4 characters long' });
+        }
+
+        const userRef = db.collection('users').doc(req.user.id);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+
+        const user = userDoc.data();
+        const match = await bcrypt.compare(oldPassword, user.PasswordHash);
+        if (!match) return res.status(400).json({ error: 'Current password is incorrect' });
+
+        const newHash = await bcrypt.hash(newPassword, 12);
+        const nextTv = (user.TokenVersion || 0) + 1;
+
+        await userRef.update({
+            PasswordHash: newHash,
+            TokenVersion: nextTv
+        });
+
+        res.json({ success: true, message: 'Password changed successfully! All other sessions have been logged out.' });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/auth/users/reset-password (Admin reset user password)
+router.post('/users/reset-password', authMiddleware, async (req, res) => {
+    try {
+        if (!req.user.role || req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({ error: 'Access denied: Admin only' });
+        }
+        const { userId, newPassword } = req.body;
+        if (!userId || !newPassword) {
+            return res.status(400).json({ error: 'userId and newPassword required' });
+        }
+
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+
+        const newHash = await bcrypt.hash(newPassword, 12);
+        const nextTv = ((userDoc.data().TokenVersion) || 0) + 1;
+
+        await userRef.update({
+            PasswordHash: newHash,
+            TokenVersion: nextTv
+        });
+
+        res.json({ success: true, message: `Password reset successfully for user. Logged out all active sessions.` });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/auth/logout-all (Revoke all active sessions on all devices for a user)
+router.post('/logout-all', authMiddleware, async (req, res) => {
+    try {
+        const targetUserId = (req.body && req.body.userId) ? req.body.userId : req.user.id;
+        
+        // Non-admin can only logout self
+        if (targetUserId !== req.user.id && (!req.user.role || req.user.role.toLowerCase() !== 'admin')) {
+            return res.status(403).json({ error: 'Access denied: Cannot logout other users' });
+        }
+
+        const userRef = db.collection('users').doc(targetUserId);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+
+        const nextTv = ((userDoc.data().TokenVersion) || 0) + 1;
+        await userRef.update({ TokenVersion: nextTv });
+
+        res.json({ success: true, message: 'All active sessions on all devices have been logged out!' });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

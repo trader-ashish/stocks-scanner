@@ -3578,9 +3578,13 @@ async function loadManageUsersPage() {
                        </select>`;
 
                 const permsJson = JSON.stringify(u.Permissions || {}).replace(/"/g, '&quot;');
-                const permBtnHtml = isSelf
-                    ? `<span style="color:var(--text-muted); font-size:0.75rem;">Full Permissions</span>`
-                    : `<button onclick="openPermissionsModal('${u.Id}', '${escapeHtml(u.Username)}', '${permsJson}')" style="padding: 4px 10px; font-size: 0.78rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">⚙️ Permissions</button>`;
+                const actionBtns = isSelf
+                    ? `<span style="color:var(--text-muted); font-size:0.75rem;">You (Admin)</span>`
+                    : `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <button onclick="openPermissionsModal('${u.Id}', '${escapeHtml(u.Username)}', '${permsJson}')" style="padding: 4px 8px; font-size: 0.75rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">⚙️ Permissions</button>
+                        <button onclick="logoutAllDevices('${u.Id}', '${escapeHtml(u.Username)}')" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); border-radius: 4px; cursor: pointer;" title="Revoke all active sessions on all devices">🚪 Logout All</button>
+                        <button onclick="openAdminResetPassModal('${u.Id}', '${escapeHtml(u.Username)}')" style="padding: 4px 8px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;" title="Reset Password">🔑 Reset Pass</button>
+                       </div>`;
 
                 return `<tr>
                     <td style="font-weight:600; color:var(--text-primary);">${escapeHtml(u.Username)}</td>
@@ -3595,7 +3599,7 @@ async function loadManageUsersPage() {
                     <td>
                         <div style="display:flex; align-items:center; gap:8px;">
                             ${dropdownHtml}
-                            ${permBtnHtml}
+                            ${actionBtns}
                         </div>
                     </td>
                 </tr>`;
@@ -3605,6 +3609,133 @@ async function loadManageUsersPage() {
         }
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan="6" class="loading-row" style="color:#ef4444">Error loading users: ${e.message}</td></tr>`;
+    }
+}
+
+// ── Password Management & Session Revocation Functions ───────────────────
+
+function openChangePasswordModal() {
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmNewPassword').value = '';
+    document.getElementById('changePassError').textContent = '';
+    document.getElementById('changePasswordModal').style.display = 'flex';
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').style.display = 'none';
+}
+
+async function submitChangePassword() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+    const errEl = document.getElementById('changePassError');
+    const btn = document.getElementById('btnSubmitChangePass');
+    errEl.textContent = '';
+
+    if (!oldPassword || !newPassword || !confirmNewPassword) {
+        errEl.textContent = 'Please fill all fields';
+        return;
+    }
+    if (newPassword !== confirmNewPassword) {
+        errEl.textContent = 'New passwords do not match';
+        return;
+    }
+    if (newPassword.length < 4) {
+        errEl.textContent = 'New password must be at least 4 characters long';
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerText = 'Updating...'; }
+
+    try {
+        const res = await fetch(`${API}/auth/change-password`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to change password');
+
+        if (typeof showToast === 'function') showToast('✅ Password changed successfully!');
+        closeChangePasswordModal();
+    } catch(e) {
+        errEl.textContent = e.message;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = 'Update Password'; }
+    }
+}
+
+function openAdminResetPassModal(userId, username) {
+    document.getElementById('resetUserId').value = userId;
+    document.getElementById('resetModalTitle').textContent = `🔑 Reset Password — ${username}`;
+    document.getElementById('adminNewPassword').value = '';
+    document.getElementById('resetPassError').textContent = '';
+    document.getElementById('adminResetPassModal').style.display = 'flex';
+}
+
+function closeAdminResetPassModal() {
+    document.getElementById('adminResetPassModal').style.display = 'none';
+}
+
+async function submitAdminResetPassword() {
+    const userId = document.getElementById('resetUserId').value;
+    const newPassword = document.getElementById('adminNewPassword').value;
+    const errEl = document.getElementById('resetPassError');
+    const btn = document.getElementById('btnSubmitResetPass');
+    errEl.textContent = '';
+
+    if (!newPassword || newPassword.length < 4) {
+        errEl.textContent = 'New password must be at least 4 characters long';
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerText = 'Resetting...'; }
+
+    try {
+        const res = await fetch(`${API}/auth/users/reset-password`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+
+        if (typeof showToast === 'function') showToast('✅ User password reset successfully! Active sessions logged out.');
+        closeAdminResetPassModal();
+        loadManageUsersPage();
+    } catch(e) {
+        errEl.textContent = e.message;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = '🔑 Reset Password'; }
+    }
+}
+
+async function logoutAllDevices(targetUserId = null, username = null) {
+    const msg = username ? `⚠️ "${username}" ke saare active sessions (Mobile/PC) logout kar dein?` : `⚠️ Apne account ke saare active sessions sabhi devices se logout karein?`;
+    if (!confirm(msg)) return;
+
+    try {
+        const payload = targetUserId ? { userId: targetUserId } : {};
+        const res = await fetch(`${API}/auth/logout-all`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Logout failed');
+
+        if (typeof showToast === 'function') showToast('🚪 All active sessions logged out successfully!');
+
+        // If self logout, trigger local logout
+        if (!targetUserId || targetUserId === (getAuthUser() && getAuthUser().id)) {
+            setTimeout(() => { if (typeof doLogout === 'function') doLogout(); }, 1000);
+        } else {
+            loadManageUsersPage();
+        }
+    } catch(e) {
+        alert('Logout Error: ' + e.message);
     }
 }
 
