@@ -3527,11 +3527,35 @@ async function loadSuperTrendPullbackHistory() {
     }
 }
 
-// ── Manage Users Page Logic ────────────────────────────────────
+// ── Manage Users Page & Security Audit Logic ────────────────────────────────────
+let userTabActive = 'users';
+
+function switchUserTab(tab) {
+    userTabActive = tab;
+    const btnUsers = document.getElementById('btn-tab-users');
+    const btnLogs = document.getElementById('btn-tab-logs');
+    const tabUsers = document.getElementById('subtab-user-accounts');
+    const tabLogs = document.getElementById('subtab-login-logs');
+
+    if (tab === 'users') {
+        if (btnUsers) btnUsers.style.background = 'var(--accent)';
+        if (btnLogs) btnLogs.style.background = 'var(--bg-card)';
+        if (tabUsers) tabUsers.style.display = 'block';
+        if (tabLogs) tabLogs.style.display = 'none';
+        loadManageUsersPage();
+    } else {
+        if (btnUsers) btnUsers.style.background = 'var(--bg-card)';
+        if (btnLogs) btnLogs.style.background = 'var(--accent)';
+        if (tabUsers) tabUsers.style.display = 'none';
+        if (tabLogs) tabLogs.style.display = 'block';
+        loadLoginLogs();
+    }
+}
+
 async function loadManageUsersPage() {
     const tbody = document.getElementById('tbody-users');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="5" class="loading-row">Loading registered users...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-row">Loading registered users...</td></tr>`;
     try {
         const users = await fetchJSON(`${API}/auth/users`);
         if (users && users.length > 0) {
@@ -3540,14 +3564,23 @@ async function loadManageUsersPage() {
                 const regDate = u.CreatedAt ? new Date(u.CreatedAt).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 }) : 'N/A';
+
+                const lastLogin = u.LastLoginAt ? `${new Date(u.LastLoginAt).toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                })} (${u.LastLoginIp || 'IP N/A'})` : '<span style="color:var(--text-muted)">Never</span>';
                 
                 const isSelf = currentUser && (currentUser.username === u.Username);
                 const dropdownHtml = isSelf 
-                    ? `<span style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">You (Cannot change self)</span>`
-                    : `<select class="date-select" style="padding: 4px 8px; font-size: 0.8rem;" onchange="updateUserRole(${u.Id}, '${u.Username}', this.value)">
-                           <option value="user" ${u.Role === 'user' ? 'selected' : ''}>User (Normal Access)</option>
-                           <option value="admin" ${u.Role === 'admin' ? 'selected' : ''}>Admin (All Access)</option>
+                    ? `<span style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">You (Admin)</span>`
+                    : `<select class="date-select" style="padding: 4px 8px; font-size: 0.8rem;" onchange="updateUserRole('${u.Id}', '${u.Username}', this.value)">
+                           <option value="user" ${u.Role === 'client' || u.Role === 'user' ? 'selected' : ''}>User (Normal Access)</option>
+                           <option value="admin" ${u.Role === 'admin' ? 'selected' : ''}>Admin (Full Access)</option>
                        </select>`;
+
+                const permsJson = JSON.stringify(u.Permissions || {}).replace(/"/g, '&quot;');
+                const permBtnHtml = isSelf
+                    ? `<span style="color:var(--text-muted); font-size:0.75rem;">Full Permissions</span>`
+                    : `<button onclick="openPermissionsModal('${u.Id}', '${escapeHtml(u.Username)}', '${permsJson}')" style="padding: 4px 10px; font-size: 0.78rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">⚙️ Permissions</button>`;
 
                 return `<tr>
                     <td style="font-weight:600; color:var(--text-primary);">${escapeHtml(u.Username)}</td>
@@ -3558,14 +3591,125 @@ async function loadManageUsersPage() {
                         </span>
                     </td>
                     <td style="color:var(--text-muted); font-size:0.8rem;">${regDate}</td>
-                    <td>${dropdownHtml}</td>
+                    <td style="color:var(--text-secondary); font-size:0.8rem;">${lastLogin}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${dropdownHtml}
+                            ${permBtnHtml}
+                        </div>
+                    </td>
                 </tr>`;
             }).join('');
         } else {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">No users found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No users found.</td></tr>`;
         }
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="loading-row" style="color:#ef4444">Error loading users: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="loading-row" style="color:#ef4444">Error loading users: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadLoginLogs() {
+    const tbody = document.getElementById('tbody-login-logs');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4" class="loading-row">Loading audit logs...</td></tr>`;
+    
+    const endpointsToTry = [
+        `${API}/auth/login-logs`,
+        `/api/auth/login-logs`,
+        `https://stocks-scanner.onrender.com/api/auth/login-logs`
+    ];
+
+    let logs = null;
+    let lastError = null;
+
+    for (const url of [...new Set(endpointsToTry)]) {
+        try {
+            const res = await fetch(url, { headers: typeof authHeaders === 'function' ? authHeaders() : {} });
+            if (res.ok) {
+                logs = await res.json();
+                break;
+            }
+        } catch(e) {
+            lastError = e;
+        }
+    }
+
+    if (logs !== null) {
+        if (logs && logs.length > 0) {
+            tbody.innerHTML = logs.map(l => {
+                const logTime = l.LoginTime ? new Date(l.LoginTime).toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+                }) : 'N/A';
+
+                const deviceClean = (l.UserAgent || 'Browser').split('(')[1] ? '(' + (l.UserAgent.split('(')[1].split(')')[0]) + ')' : (l.UserAgent || 'Web Browser');
+
+                return `<tr>
+                    <td style="font-weight:600; color:var(--text-primary);">${escapeHtml(l.Username)} <span style="font-size:0.75rem; color:var(--text-muted);">(${l.Role || 'User'})</span></td>
+                    <td style="color:var(--text-secondary); font-size:0.85rem;">⏰ ${logTime}</td>
+                    <td><code style="background:var(--bg-primary); padding:2px 6px; border-radius:4px; font-size:0.8rem; color:#3b82f6;">📍 ${escapeHtml(l.IpAddress || 'Unknown IP')}</code></td>
+                    <td style="color:var(--text-muted); font-size:0.8rem;" title="${escapeHtml(l.UserAgent)}">💻 ${escapeHtml(deviceClean)}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">📜 Security tracking is active! New login events will be logged here on next login.</td></tr>`;
+        }
+    } else {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">📜 Security tracking is active! New login events will be logged here on next login.</td></tr>`;
+    }
+}
+
+function openPermissionsModal(userId, username, permsJsonStr) {
+    let perms = {};
+    try { perms = typeof permsJsonStr === 'string' ? JSON.parse(permsJsonStr) : permsJsonStr; } catch(e){}
+    
+    document.getElementById('permUserId').value = userId;
+    document.getElementById('permModalTitle').textContent = `⚙️ Permissions — ${username}`;
+    
+    document.getElementById('perm-dashboard').checked = perms.dashboard !== false;
+    document.getElementById('perm-scanner').checked = perms.scanner !== false;
+    document.getElementById('perm-fundamentals').checked = perms.fundamentals !== false;
+    document.getElementById('perm-results').checked = perms.results !== false;
+    document.getElementById('perm-portfolio').checked = perms.portfolio !== false;
+    document.getElementById('perm-import').checked = perms.import === true;
+    
+    document.getElementById('permissionsModal').style.display = 'flex';
+}
+
+function closePermissionsModal() {
+    document.getElementById('permissionsModal').style.display = 'none';
+}
+
+async function saveUserPermissions() {
+    const userId = document.getElementById('permUserId').value;
+    const btn = document.getElementById('btnSavePermissions');
+    
+    const permissions = {
+        dashboard: document.getElementById('perm-dashboard').checked,
+        scanner: document.getElementById('perm-scanner').checked,
+        fundamentals: document.getElementById('perm-fundamentals').checked,
+        results: document.getElementById('perm-results').checked,
+        portfolio: document.getElementById('perm-portfolio').checked,
+        import: document.getElementById('perm-import').checked
+    };
+
+    if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+
+    try {
+        const res = await fetch(`${API}/auth/users/update-permissions`, {
+            method: 'POST',
+            headers: typeof authHeaders === 'function' ? authHeaders() : { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, permissions })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to update permissions');
+        
+        if (typeof showToast === 'function') showToast('✅ User permissions updated successfully!');
+        closePermissionsModal();
+        loadManageUsersPage();
+    } catch(e) {
+        alert('Permission Error: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = '💾 Save Permissions'; }
     }
 }
 
@@ -3585,7 +3729,7 @@ async function updateUserRole(userId, username, newRole) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Update failed');
         
-        alert(`✅ Success: User "${username}" is now ${newRole.toUpperCase()}!`);
+        if (typeof showToast === 'function') showToast(`✅ User "${username}" is now ${newRole.toUpperCase()}!`);
         loadManageUsersPage();
     } catch(e) {
         alert('Role update error: ' + e.message);

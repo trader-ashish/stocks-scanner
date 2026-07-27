@@ -51,16 +51,27 @@ function updateAuthUI() {
             liveSyncWrap.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
         }
 
-        // Manage Users sidebar nav visibility
+        // Apply Section Access Permissions
+        const perms = (user.role && user.role.toLowerCase() === 'admin')
+            ? { dashboard: true, scanner: true, fundamentals: true, results: true, portfolio: true, import: true }
+            : (user.permissions || { dashboard: true, scanner: true, fundamentals: true, results: true, portfolio: true, import: false });
+
+        const setNavPerm = (navId, isAllowed) => {
+            const navEl = document.getElementById(navId) || document.querySelector(`.nav-item[data-page="${navId.replace('nav-','')}"]`);
+            if (navEl) navEl.style.display = isAllowed ? 'flex' : 'none';
+        };
+
+        setNavPerm('nav-dashboard', perms.dashboard !== false);
+        setNavPerm('nav-scanner', perms.scanner !== false);
+        setNavPerm('nav-fundamentals', perms.fundamentals !== false);
+        setNavPerm('nav-results', perms.results !== false);
+        setNavPerm('nav-portfolio', perms.portfolio !== false);
+        setNavPerm('nav-import', perms.import === true || user.role === 'admin');
+
+        // Manage Users sidebar nav visibility (Admin only)
         const navUsers = document.getElementById('nav-manage-users');
         if (navUsers) {
             navUsers.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
-        }
-
-        // Import Data sidebar nav visibility (Admin only)
-        const navImport = document.getElementById('nav-import');
-        if (navImport) {
-            navImport.style.display = (user.role && user.role.toLowerCase() === 'admin') ? 'flex' : 'none';
         }
 
         closeAuthModal();
@@ -74,23 +85,14 @@ function updateAuthUI() {
             el.style.display = 'none';
         });
 
-        // Hide Live Sync for logged out users
         const liveSyncWrap = document.getElementById('liveSyncWrap');
-        if (liveSyncWrap) {
-            liveSyncWrap.style.display = 'none';
-        }
+        if (liveSyncWrap) liveSyncWrap.style.display = 'none';
 
-        // Hide Manage Users sidebar nav for logged out users
         const navUsers = document.getElementById('nav-manage-users');
-        if (navUsers) {
-            navUsers.style.display = 'none';
-        }
+        if (navUsers) navUsers.style.display = 'none';
 
-        // Hide Import Data sidebar nav for logged out users
         const navImport = document.getElementById('nav-import');
-        if (navImport) {
-            navImport.style.display = 'none';
-        }
+        if (navImport) navImport.style.display = 'none';
 
         // Lock main content access and blur it
         if (mainContent) {
@@ -154,7 +156,7 @@ async function doLogin() {
         const data = await res.json();
         if (!res.ok) { errEl.textContent = data.error || 'Login failed'; return; }
         localStorage.setItem('ss_token', data.token);
-        localStorage.setItem('ss_user', JSON.stringify({ username: data.username, role: data.role }));
+        localStorage.setItem('ss_user', JSON.stringify({ username: data.username, role: data.role, permissions: data.permissions }));
         updateAuthUI();
         closeAuthModal();
         showToast(`Welcome back, ${data.username}! 👋`);
@@ -167,9 +169,17 @@ async function doRegister() {
     const password = document.getElementById('regPassword').value;
     const errEl  = document.getElementById('regError');
     const succEl = document.getElementById('regSuccess');
+    const regBtn = document.querySelector('#formRegister button[type="button"], #formRegister button[type="submit"]');
+    
     errEl.textContent = ''; succEl.textContent = '';
     if (!username || !email || !password) { errEl.textContent = 'Please fill all fields'; return; }
     if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+
+    if (regBtn) {
+        regBtn.disabled = true;
+        regBtn.innerText = 'Creating Account...';
+    }
+
     try {
         const res = await fetch(`${API}/auth/register`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -179,7 +189,14 @@ async function doRegister() {
         if (!res.ok) { errEl.textContent = data.error || 'Registration failed'; return; }
         succEl.textContent = '✅ Account created! Please login.';
         setTimeout(() => switchAuthTab('login'), 1500);
-    } catch (e) { errEl.textContent = 'Server error: ' + e.message; }
+    } catch (e) { 
+        errEl.textContent = 'Server error: ' + e.message; 
+    } finally {
+        if (regBtn) {
+            regBtn.disabled = false;
+            regBtn.innerText = 'Register';
+        }
+    }
 }
 
 function doLogout() {
