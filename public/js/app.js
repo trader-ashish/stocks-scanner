@@ -19,6 +19,28 @@ let state = {
     theme: 'dark'
 };
 
+// ===== INDEX UNIVERSE DEFINITIONS (Nifty 50 & Nifty 100) =====
+const NIFTY_50_SYMBOLS = new Set([
+    'ADANIENT', 'ADANIPORTS', 'APOLLOHOSP', 'ASIANPAINT', 'AXISBANK', 'BAJAJ-AUTO', 'BAJFINANCE',
+    'BAJAJFINSV', 'BEL', 'BPCL', 'BHARTIARTL', 'BRITANNIA', 'CIPLA', 'COALINDIA', 'DIVISLAB',
+    'DRREDDY', 'EICHERMOT', 'GRASIM', 'HCLTECH', 'HDFCBANK', 'HDFCLIFE', 'HEROMOTOCO', 'HINDALCO',
+    'HINDUNILVR', 'ICICIBANK', 'ITC', 'INDUSINDBK', 'INFY', 'JSWSTEEL', 'KOTAKBANK', 'LT',
+    'LTIM', 'M&M', 'MARUTI', 'NTPC', 'NESTLEIND', 'ONGC', 'POWERGRID', 'RELIANCE', 'SBILIFE',
+    'SHRIRAMFIN', 'SBIN', 'SUNPHARMA', 'TCS', 'TATACONSUM', 'TATAMOTORS', 'TATASTEEL', 'TECHM',
+    'TITAN', 'TRENT', 'ULTRACEMCO', 'WIPRO'
+]);
+
+const NIFTY_NEXT_50_SYMBOLS = new Set([
+    'ABB', 'ADANIENSOL', 'ADANIGREEN', 'ADANIPOWER', 'ATGL', 'AMBUJACEM', 'BANKBARODA', 'BERGEPAINT',
+    'BOSCHLTD', 'CANBK', 'CHOLAFIN', 'COLPAL', 'DLF', 'DMART', 'GAIL', 'GODREJCP', 'HAL',
+    'HAVELLS', 'ICICIGI', 'ICICIPRULI', 'IOC', 'IRCTC', 'IRFC', 'INDIGO', 'JIOFIN', 'JSL',
+    'JSWENERGY', 'LODHA', 'MAXHEALTH', 'MOTHERSON', 'NAUKRI', 'NHPC', 'OIL', 'PIDILITIND',
+    'PFC', 'PNB', 'POLYCAB', 'RECLTD', 'SBICARD', 'SRF', 'SIEMENS', 'TATAELXSI', 'TATAPOWER',
+    'TORNTPHARM', 'UNITEDSPIR', 'VBL', 'VEDL', 'ZOMATO', 'ZYDUSLIFE'
+]);
+
+const NIFTY_100_SYMBOLS = new Set([...NIFTY_50_SYMBOLS, ...NIFTY_NEXT_50_SYMBOLS]);
+
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
@@ -742,10 +764,22 @@ function renderIntradayTable() {
     let data = [...state.rawIntradayData];
 
     const search = document.getElementById('intradaySearch')?.value.trim().toUpperCase() || '';
+    const indexFilter = document.getElementById('intradayIndexFilter')?.value || 'all';
     const biasFilter = document.getElementById('intradayBiasFilter')?.value || 'all';
     const sectorFilter = document.getElementById('intradaySectorFilter')?.value || '';
     const minVal = parseFloat(document.getElementById('intradayValueFilter')?.value) || 0;
     const minMove = parseFloat(document.getElementById('intradayMoveFilter')?.value) || 0;
+
+    // Apply Index Universe Filter (Nifty 50 / Nifty 100 / Nifty Next 50 / Midcap)
+    if (indexFilter === 'nifty50') {
+        data = data.filter(s => NIFTY_50_SYMBOLS.has((s.Symbol || '').toUpperCase()));
+    } else if (indexFilter === 'nifty100') {
+        data = data.filter(s => NIFTY_100_SYMBOLS.has((s.Symbol || '').toUpperCase()));
+    } else if (indexFilter === 'niftynext50') {
+        data = data.filter(s => NIFTY_NEXT_50_SYMBOLS.has((s.Symbol || '').toUpperCase()));
+    } else if (indexFilter === 'midcap') {
+        data = data.filter(s => !NIFTY_100_SYMBOLS.has((s.Symbol || '').toUpperCase()));
+    }
 
     // Apply Search Filter
     if (search) {
@@ -961,12 +995,14 @@ async function executeTradeToPortfolio() {
 
 function applyIntradayPreset(preset) {
     const search = document.getElementById('intradaySearch');
+    const index = document.getElementById('intradayIndexFilter');
     const bias = document.getElementById('intradayBiasFilter');
     const sector = document.getElementById('intradaySectorFilter');
     const val = document.getElementById('intradayValueFilter');
     const move = document.getElementById('intradayMoveFilter');
 
     if (search) search.value = '';
+    if (index) index.value = 'all';
     if (sector) sector.value = '';
     if (bias) bias.value = 'all';
     if (val) val.value = '0';
@@ -974,7 +1010,9 @@ function applyIntradayPreset(preset) {
     intradaySortCol = 'IntradayScore';
     intradaySortAsc = false;
 
-    if (preset === 'bullish' && bias) bias.value = 'BULLISH';
+    if (preset === 'nifty50' && index) index.value = 'nifty50';
+    else if (preset === 'nifty100' && index) index.value = 'nifty100';
+    else if (preset === 'bullish' && bias) bias.value = 'BULLISH';
     else if (preset === 'bearish' && bias) bias.value = 'BEARISH';
     else if (preset === 'momentum') {
         if (bias) bias.value = 'BULLISH';
@@ -1539,12 +1577,20 @@ async function loadAllStocks() {
 }
 
 function filterAllStocks() {
-    const search = document.getElementById('stockSearch').value.toUpperCase();
-    const sector = document.getElementById('allStockSectorFilter').value;
-    state.allStocksFiltered = state.allStocksData.filter(s =>
-        (!search || s.Symbol?.includes(search)) &&
-        (!sector || s.Sector === sector)
-    );
+    const search = document.getElementById('stockSearch')?.value.toUpperCase() || '';
+    const sector = document.getElementById('allStockSectorFilter')?.value || '';
+    const indexFilter = document.getElementById('allStockIndexFilter')?.value || 'all';
+
+    state.allStocksFiltered = state.allStocksData.filter(s => {
+        const sym = (s.Symbol || '').toUpperCase();
+        let passIndex = true;
+        if (indexFilter === 'nifty50') passIndex = NIFTY_50_SYMBOLS.has(sym);
+        else if (indexFilter === 'nifty100') passIndex = NIFTY_100_SYMBOLS.has(sym);
+        else if (indexFilter === 'niftynext50') passIndex = NIFTY_NEXT_50_SYMBOLS.has(sym);
+        else if (indexFilter === 'midcap') passIndex = !NIFTY_100_SYMBOLS.has(sym);
+
+        return passIndex && (!search || sym.includes(search)) && (!sector || s.Sector === sector);
+    });
     renderAllStocksTable();
 }
 

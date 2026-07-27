@@ -10,8 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="css/style.css?v=20260725_v5">
-    <script src="js/app.js?v=52_sec"></script>
-    <script src="js/auth_results.js?v=52_sec"></script>
+    <script src="js/app.js?v=53_nifty"></script>
+    <script src="js/auth_results.js?v=53_nifty"></script>
     <meta name="theme-color" content="#0b0f19">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -733,6 +733,13 @@
                 </div>
                 <div class="filter-row" style="gap: 8px; flex-wrap: wrap;">
                     <input type="text" id="intradaySearch" class="filter-select" placeholder="🔍 Search symbol..." oninput="renderIntradayTable()" style="min-width: 150px;">
+                    <select id="intradayIndexFilter" class="filter-select" onchange="renderIntradayTable()" style="font-weight: 600; color: var(--accent);">
+                        <option value="all">🌐 All Nifty 500</option>
+                        <option value="nifty50">🏆 Nifty 50 Only</option>
+                        <option value="nifty100">🥇 Nifty 100 Only</option>
+                        <option value="niftynext50">🥈 Nifty Next 50</option>
+                        <option value="midcap">🥉 Midcap &amp; Smallcap</option>
+                    </select>
                     <select id="intradayBiasFilter" class="filter-select" onchange="renderIntradayTable()">
                         <option value="all">All Bias (Bull/Bear)</option>
                         <option value="BULLISH">🟢 Bullish Only</option>
@@ -757,6 +764,8 @@
                 </div>
                 <div class="quick-filter-row" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('all')">🔄 Reset All</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem; font-weight:700; background:rgba(59,130,246,0.18); color:#3b82f6; border:1px solid rgba(59,130,246,0.4);" onclick="applyIntradayPreset('nifty50')">🏆 Nifty 50</button>
+                    <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem; font-weight:700; background:rgba(34,197,94,0.18); color:#22c55e; border:1px solid rgba(34,197,94,0.4);" onclick="applyIntradayPreset('nifty100')">🥇 Nifty 100</button>
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('bullish')">🟢 Bullish Only</button>
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('bearish')">🔴 Bearish Only</button>
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="applyIntradayPreset('momentum')">🔥 Momentum (&gt;3%)</button>
@@ -1490,6 +1499,13 @@
                     <span class="search-icon">🔍</span>
                     <input type="text" id="stockSearch" placeholder="Search symbol..." oninput="filterAllStocks()" class="search-input">
                 </div>
+                <select id="allStockIndexFilter" class="filter-select" onchange="filterAllStocks()" style="font-weight: 600; color: var(--accent);">
+                    <option value="all">🌐 All Nifty 500</option>
+                    <option value="nifty50">🏆 Nifty 50 Only</option>
+                    <option value="nifty100">🥇 Nifty 100 Only</option>
+                    <option value="niftynext50">🥈 Nifty Next 50</option>
+                    <option value="midcap">🥉 Midcap &amp; Smallcap</option>
+                </select>
                 <select id="allStockSectorFilter" class="filter-select" onchange="filterAllStocks()">
                     <option value="">All Sectors</option>
                 </select>
